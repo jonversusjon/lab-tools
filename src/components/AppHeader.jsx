@@ -13,7 +13,7 @@ function AppHeader({ darkMode, toggleDarkMode }) {
         {/* Hamburger Menu Button */}
         <button
           onClick={toggleMenu}
-          className="p-2 rounded-md text-gray-800 dark:text-gray-50 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-600 dark:focus:ring-indigo-400 focus:ring-opacity-30 transition-all duration-200"
+          className="p-2 rounded-md text-gray-800 dark:text-gray-50 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:focus:ring-blue-400 focus:ring-opacity-30 transition-all duration-200"
           aria-label="Main menu"
           aria-expanded={menuOpen}
         >
@@ -34,14 +34,14 @@ function AppHeader({ darkMode, toggleDarkMode }) {
         </button>
 
         {/* App Title */}
-        <h1 className="text-xl md:text-2xl font-bold text-indigo-600 dark:text-indigo-400 text-center">
-          qPCR Protocol Calculator
+        <h1 className="text-xl md:text-2xl font-bold text-gray-600 dark:text-gray-400 text-center">
+          Lab Tools (Notion Supplement)
         </h1>
 
         {/* Dark Mode Toggle */}
         <button
           onClick={toggleDarkMode}
-          className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 shadow-sm"
+          className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 shadow-sm"
           aria-label="Toggle dark mode"
         >
           {darkMode ? (

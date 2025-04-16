@@ -54,7 +54,7 @@ function QpcrProtocol() {
 
   return (
     <div className="mb-8">
-      <h1 className="text-4xl font-bold text-center text-indigo-600 dark:text-indigo-400 mb-2">
+      <h1 className="text-4xl font-bold text-center text-blue-600 dark:text-blue-400 mb-2">
         qPCR Protocol
       </h1>
       <p className="text-right italic mb-6 text-gray-600 dark:text-gray-300">
@@ -63,7 +63,7 @@ function QpcrProtocol() {
 
       {/* Reagents Section */}
       <section className="mb-8">
-        <h2 className="text-2xl font-bold mb-4 text-indigo-600 dark:text-indigo-400">
+        <h2 className="text-2xl font-bold mb-4 text-blue-600 dark:text-blue-400">
           Reagents
         </h2>
         <div className="ml-4">
@@ -105,7 +105,7 @@ function QpcrProtocol() {
 
       {/* Master Mix Calculator Section */}
       <section className="mb-8">
-        <h2 className="text-2xl font-bold mb-4 text-indigo-600 dark:text-indigo-400">
+        <h2 className="text-2xl font-bold mb-4 text-blue-600 dark:text-blue-400">
           Master Mix Calculator
         </h2>
 
@@ -121,7 +121,7 @@ function QpcrProtocol() {
               id="numSamples"
               type="number"
               min="1"
-              className="border border-gray-200 dark:border-gray-700 rounded px-2 py-1 w-20 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-50 focus:border-indigo-600 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-600/20 dark:focus:ring-indigo-400/30 focus:outline-none transition-colors duration-200"
+              className="border border-gray-200 dark:border-gray-700 rounded px-2 py-1 w-20 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-50 focus:border-blue-600 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/30 focus:outline-none transition-colors duration-200"
               value={numSamples}
               onChange={(e) =>
                 setNumSamples(Math.max(1, parseInt(e.target.value) || 1))
@@ -133,7 +133,7 @@ function QpcrProtocol() {
             <input
               id="includeOverage"
               type="checkbox"
-              className="h-4 w-4 text-indigo-600 dark:text-indigo-400 border-gray-200 dark:border-gray-700 rounded focus:ring-indigo-600 dark:focus:ring-indigo-400"
+              className="h-4 w-4 text-blue-600 dark:text-blue-400 border-gray-200 dark:border-gray-700 rounded focus:ring-blue-600 dark:focus:ring-blue-400"
               checked={includeOverage}
               onChange={(e) => setIncludeOverage(e.target.checked)}
             />
@@ -151,7 +151,7 @@ function QpcrProtocol() {
                   type="number"
                   min="1"
                   max="100"
-                  className="border border-gray-200 dark:border-gray-700 rounded px-2 py-1 w-16 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-50 focus:border-indigo-600 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-600/20 dark:focus:ring-indigo-400/30 focus:outline-none transition-colors duration-200"
+                  className="border border-gray-200 dark:border-gray-700 rounded px-2 py-1 w-16 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-50 focus:border-blue-600 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/30 focus:outline-none transition-colors duration-200"
                   value={overagePercent}
                   onChange={(e) =>
                     setOveragePercent(
@@ -166,11 +166,14 @@ function QpcrProtocol() {
         </div>
 
         <div className="overflow-x-auto">
+          
+          {/* Table styling using Tailwind classes */}
+          <div className="max-w-3xl overflow-hidden rounded-lg shadow-sm">
           <div className="flex justify-between items-center mb-2">
             <div></div>
             <button
               onClick={copyTableToClipboard}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-400 dark:hover:bg-indigo-500 text-white dark:text-gray-50 font-medium py-1.5 px-3 rounded-md transition-colors duration-200 text-sm shadow-sm hover:shadow"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white dark:text-gray-50 font-medium py-1.5 px-3 rounded-md transition-colors duration-200 text-sm shadow-sm hover:shadow"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -195,18 +198,16 @@ function QpcrProtocol() {
             </button>
           </div>
 
-          {/* Table styling using Tailwind classes */}
-          <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
             <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  <th className="bg-indigo-600 dark:bg-indigo-400 text-white dark:text-gray-50 font-semibold text-left p-3 border-b border-indigo-700 dark:border-indigo-500">
+                  <th className="bg-blue-600 dark:bg-blue-400 text-white dark:text-gray-50 font-semibold text-left p-3 border-b border-blue-700 dark:border-blue-500">
                     Reagent
                   </th>
-                  <th className="bg-indigo-600 dark:bg-indigo-400 text-white dark:text-gray-50 font-semibold text-left p-3 border-b border-indigo-700 dark:border-indigo-500">
+                  <th className="bg-blue-600 dark:bg-blue-400 text-white dark:text-gray-50 font-semibold text-left p-3 border-b border-blue-700 dark:border-blue-500">
                     Volume
                   </th>
-                  <th className="bg-indigo-600 dark:bg-indigo-400 text-white dark:text-gray-50 font-semibold text-left p-3 border-b border-indigo-700 dark:border-indigo-500">
+                  <th className="bg-blue-600 dark:bg-blue-400 text-white dark:text-gray-50 font-semibold text-left p-3 border-b border-blue-700 dark:border-blue-500">
                     x {numSamples} sample{numSamples !== 1 ? "s" : ""}{" "}
                     {includeOverage ? `(+${overagePercent}% overage)` : ""}
                   </th>
@@ -239,7 +240,7 @@ function QpcrProtocol() {
 
       {/* Protocol Section */}
       <section className="mb-8">
-        <h2 className="text-2xl font-bold mb-4 text-indigo-600 dark:text-indigo-400">
+        <h2 className="text-2xl font-bold mb-4 text-blue-600 dark:text-blue-400">
           Protocol
         </h2>
         <ol className="list-decimal ml-6 space-y-4 text-gray-800 dark:text-gray-50">
@@ -282,17 +283,17 @@ function QpcrProtocol() {
               </li>
               <li>
                 Ensure thermal cycler conditions are right
-                <div className="mt-2 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div className="max-w-3xl mt-2 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
                   <table className="w-full border-collapse">
                     <thead>
                       <tr>
-                        <th className="bg-indigo-600 dark:bg-indigo-400 text-white dark:text-gray-50 font-semibold text-left p-3 border-b border-indigo-700 dark:border-indigo-500">
+                        <th className="bg-blue-600 dark:bg-blue-400 text-white dark:text-gray-50 font-semibold text-left p-3 border-b border-blue-700 dark:border-blue-500">
                           Temp
                         </th>
-                        <th className="bg-indigo-600 dark:bg-indigo-400 text-white dark:text-gray-50 font-semibold text-left p-3 border-b border-indigo-700 dark:border-indigo-500">
+                        <th className="bg-blue-600 dark:bg-blue-400 text-white dark:text-gray-50 font-semibold text-left p-3 border-b border-blue-700 dark:border-blue-500">
                           Time
                         </th>
-                        <th className="bg-indigo-600 dark:bg-indigo-400 text-white dark:text-gray-50 font-semibold text-left p-3 border-b border-indigo-700 dark:border-indigo-500">
+                        <th className="bg-blue-600 dark:bg-blue-400 text-white dark:text-gray-50 font-semibold text-left p-3 border-b border-blue-700 dark:border-blue-500">
                           Cycles
                         </th>
                       </tr>
