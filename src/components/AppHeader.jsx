@@ -34,7 +34,7 @@ function AppHeader({ darkMode, toggleDarkMode }) {
         </button>
 
         {/* App Title */}
-        <h1 className="text-xl md:text-2xl font-bold text-gray-600 dark:text-gray-400 text-center">
+        <h1 className="text-xl md:text-2xl font-bold text-black dark:text-gray-50 text-center">
           Lab Tools (Notion Supplement)
         </h1>
 

@@ -3,6 +3,7 @@ import {
   calculateMasterMixTable,
   copyTableToClipboard as copyTableToClipboardUtil,
 } from "../utils";
+import PlateMapCollector from "./PlateMapenerator/PlateMapCollector";
 
 function QpcrProtocol() {
   const [numSamples, setNumSamples] = useState(1);
@@ -11,6 +12,8 @@ function QpcrProtocol() {
   const [masterMixTable, setMasterMixTable] = useState([]);
   const [copySuccess, setCopySuccess] = useState(false);
   const copyTimeoutRef = useRef(null);
+  const [plates, setPlates] = useState([]);
+  const [showPlateMapSection, setShowPlateMapSection] = useState(false);
 
   // Thermal cycler conditions
   const thermalCyclerConditions = [
@@ -50,6 +53,16 @@ function QpcrProtocol() {
         setCopySuccess(false);
       }, 2000);
     }
+  };
+
+  // Handle changes to the plate collection
+  const handlePlatesChange = (updatedPlates) => {
+    setPlates(updatedPlates);
+  };
+
+  // Toggle plate map section visibility
+  const togglePlateMapSection = () => {
+    setShowPlateMapSection(!showPlateMapSection);
   };
 
   return (
@@ -117,16 +130,34 @@ function QpcrProtocol() {
             >
               Number of Samples:
             </label>
-            <input
-              id="numSamples"
-              type="number"
-              min="1"
-              className="border border-gray-200 dark:border-gray-700 rounded px-2 py-1 w-20 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-50 focus:border-blue-600 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/30 focus:outline-none transition-colors duration-200"
-              value={numSamples}
-              onChange={(e) =>
-                setNumSamples(Math.max(1, parseInt(e.target.value) || 1))
-              }
-            />
+            <div className="flex items-center">
+              <button
+                type="button"
+                className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-50 w-8 h-8 rounded-l flex items-center justify-center border border-gray-200 dark:border-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                onClick={() => setNumSamples(Math.max(1, numSamples - 1))}
+                aria-label="Decrease samples"
+              >
+                -
+              </button>
+              <input
+                id="numSamples"
+                type="number"
+                min="1"
+                className="border border-gray-200 dark:border-gray-700 border-x-0 px-2 py-1 w-20 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-50 focus:border-blue-600 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/30 focus:outline-none transition-colors duration-200 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                value={numSamples}
+                onChange={(e) =>
+                  setNumSamples(Math.max(1, parseInt(e.target.value) || 1))
+                }
+              />
+              <button
+                type="button"
+                className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-50 w-8 h-8 rounded-r flex items-center justify-center border border-gray-200 dark:border-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                onClick={() => setNumSamples(numSamples + 1)}
+                aria-label="Increase samples"
+              >
+                +
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -166,37 +197,36 @@ function QpcrProtocol() {
         </div>
 
         <div className="overflow-x-auto">
-          
           {/* Table styling using Tailwind classes */}
           <div className="max-w-3xl overflow-hidden rounded-lg shadow-sm">
-          <div className="flex justify-between items-center mb-2">
-            <div></div>
-            <button
-              onClick={copyTableToClipboard}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white dark:text-gray-50 font-medium py-1.5 px-3 rounded-md transition-colors duration-200 text-sm shadow-sm hover:shadow"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+            <div className="flex justify-between items-center mb-2">
+              <div></div>
+              <button
+                onClick={copyTableToClipboard}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white dark:text-gray-50 font-medium py-1.5 px-3 rounded-md transition-colors duration-200 text-sm shadow-sm hover:shadow"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-              </svg>
-              Copy to Notebook
-              {copySuccess && (
-                <span className="ml-1 text-green-500 dark:text-green-400">
-                  ✓
-                </span>
-              )}
-            </button>
-          </div>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+                Copy to Notebook
+                {copySuccess && (
+                  <span className="ml-1 text-green-500 dark:text-green-400">
+                    ✓
+                  </span>
+                )}
+              </button>
+            </div>
 
             <table className="w-full border-collapse">
               <thead>
@@ -236,6 +266,66 @@ function QpcrProtocol() {
             </table>
           </div>
         </div>
+      </section>
+
+      {/* Plate Map Section - New Addition */}
+      <section className="mb-8">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold mb-4 text-blue-600 dark:text-blue-400">
+            Plate Maps
+          </h2>
+          <button
+            onClick={togglePlateMapSection}
+            className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+          >
+            {showPlateMapSection ? (
+              <>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Hide Plate Maps
+              </>
+            ) : (
+              <>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Show Plate Maps
+              </>
+            )}
+          </button>
+        </div>
+
+        {showPlateMapSection && (
+          <div className="mt-4">
+            <p className="mb-4 text-gray-700 dark:text-gray-300">
+              Design your plate layout below. You can add multiple plates,
+              select different plate types, and customize well colors.
+            </p>
+            <PlateMapCollector
+              onPlatesChange={handlePlatesChange}
+              initialPlates={plates}
+            />
+          </div>
+        )}
       </section>
 
       {/* Protocol Section */}
