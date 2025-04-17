@@ -109,6 +109,12 @@ const PlateMap = ({
         return;
       }
 
+      // Clear selection when clicking in non-functional areas of the plate
+      // This makes it easy to start fresh selections
+      if (onMultipleSelection) {
+        onMultipleSelection([], false); // Empty array to clear selection
+      }
+
       const containerRect = containerRef.current.getBoundingClientRect();
       const startX = e.clientX - containerRect.left;
       const startY = e.clientY - containerRect.top;
@@ -118,7 +124,7 @@ const PlateMap = ({
       setSelectionRect({ startX, startY, endX: startX, endY: startY });
       setIsSelecting(true);
     },
-    [type]
+    [type, onMultipleSelection]
   );
 
   // Mouse move handler for drag selection
@@ -336,14 +342,13 @@ const PlateMap = ({
       const wellId = getWellId(row, col, rowLabels, colLabels);
 
       // Handle shift-click for range selection
-      if (
-        e.shiftKey &&
-        lastClickedElement &&
-        lastClickedElement.type === "well"
-      ) {
+      if (e.shiftKey && lastClickedElement) {
+        // Only consider the previous click and current click for the region
         const startWell = {
-          row: lastClickedElement.row,
-          col: lastClickedElement.col,
+          row:
+            lastClickedElement.row !== undefined ? lastClickedElement.row : row,
+          col:
+            lastClickedElement.col !== undefined ? lastClickedElement.col : col,
         };
         const endWell = { row, col };
 
@@ -355,50 +360,30 @@ const PlateMap = ({
         );
 
         if (onMultipleSelection) {
-          onMultipleSelection(region);
+          // Add to existing selection instead of replacing
+          onMultipleSelection(region, true);
         }
       }
-      // Handle ctrl/cmd-click for rectangular selection
-      else if (
-        (e.ctrlKey || e.metaKey) &&
-        lastClickedElement &&
-        lastClickedElement.type === "well"
-      ) {
-        const startWell = {
-          row: lastClickedElement.row,
-          col: lastClickedElement.col,
-        };
-        const endWell = { row, col };
-
-        const region = getRectangularRegion(
-          startWell,
-          endWell,
-          rowLabels,
-          colLabels
-        );
-
-        if (onMultipleSelection) {
-          onMultipleSelection(region);
-        }
-      }
-      // Handle ctrl/cmd-click on a single well (toggle selection)
+      // Handle ctrl/cmd-click for toggling selection
       else if (e.ctrlKey || e.metaKey) {
         // Toggle just this well
-        if (onMultipleSelection) {
-          onMultipleSelection([wellId]);
+        if (onWellClick) {
+          onWellClick(wellId, row, col);
         }
         setLastClickedElement({ type: "well", row, col, id: wellId });
       }
-      // Normal click - select just this well
+      // Normal click - toggle just this well
       else {
         setSelectedElement({ type: "well", row, col, id: wellId });
         setLastClickedElement({ type: "well", row, col, id: wellId });
-        onWellClick?.(wellId, row, col);
+        if (onWellClick) {
+          onWellClick(wellId, row, col);
+        }
       }
     },
     [lastClickedElement, onWellClick, onMultipleSelection, rowLabels, colLabels]
   );
-  
+
   // Use getWellFromEvent for global event delegation
   const handleGlobalPlateClick = useCallback(
     (e) => {
@@ -464,6 +449,7 @@ const PlateMap = ({
   const handleRowClick = useCallback(
     (row, e) => {
       setSelectedElement({ type: "row", row });
+      const rowLabel = rowLabels[row];
 
       // Handle shift-click for range selection
       if (
@@ -477,7 +463,8 @@ const PlateMap = ({
         const region = getRowRegion(startRow, endRow, rowLabels, colLabels);
 
         if (onMultipleSelection) {
-          onMultipleSelection(region);
+          // Add to existing selection
+          onMultipleSelection(region, true);
         }
       }
       // Handle ctrl/cmd-click for toggling row selection
@@ -485,14 +472,16 @@ const PlateMap = ({
         const rowWells = getRowWells(row, rowLabels, colLabels);
 
         if (onMultipleSelection) {
-          onMultipleSelection(rowWells);
+          // Toggle this row
+          onMultipleSelection(rowWells, true);
         }
       }
-      // Normal click - select this row
+      // Normal click - toggle just this row
       else {
         setLastClickedElement({ type: "row", row });
         if (onRowClick) {
-          onRowClick(row, rowLabels[row]);
+          // Pass rowLabel to make toggling easier in the parent component
+          onRowClick(row, rowLabel);
         }
       }
     },
@@ -516,7 +505,8 @@ const PlateMap = ({
         const region = getColumnRegion(startCol, endCol, rowLabels, colLabels);
 
         if (onMultipleSelection) {
-          onMultipleSelection(region);
+          // Add to existing selection with toggle mode
+          onMultipleSelection(region, true);
         }
       }
       // Handle ctrl/cmd-click for toggling column selection
@@ -524,10 +514,11 @@ const PlateMap = ({
         const colWells = getColumnWells(col, rowLabels, colLabels);
 
         if (onMultipleSelection) {
-          onMultipleSelection(colWells);
+          // Toggle this column
+          onMultipleSelection(colWells, true);
         }
       }
-      // Normal click - select this column
+      // Normal click - toggle just this column
       else {
         setLastClickedElement({ type: "column", col });
         if (onColumnClick) {
@@ -581,187 +572,191 @@ const PlateMap = ({
 
   // Common wrapper for all plate types
   const commonWrapper = (
-    <div
-      ref={containerRef}
-      className="relative border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 mb-4"
-      style={{ width: "100%", aspectRatio: PLATE_RATIO }}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        onContextMenu?.(e, "plate");
-      }}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* For well-type plates */}
-      {type === "well" ? (
-        <div className="absolute left-0 top-0 right-0 bottom-0 flex flex-col">
-          {/* Column Labels */}
-          <div className="flex h-6">
-            <div className="w-6" />
-            <div className="flex-1 flex">
-              {colLabels.map((col, i) => (
-                <div
-                  key={i}
-                  data-col-index={i}
-                  className={`flex-1 flex items-center justify-center text-xs font-medium cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-t-sm ${
-                    isColumnSelected(i)
-                      ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                      : ""
-                  }`}
-                  onClick={(e) => handleColumnClick(i, e)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    onContextMenu?.(e, "column");
-                  }}
-                >
-                  {col}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Row labels + wells */}
-          <div className="flex-1 flex">
-            <div className="w-6 flex flex-col">
-              {rowLabels.map((row, i) => (
-                <div
-                  key={i}
-                  data-row-index={i}
-                  className={`flex-1 flex items-center justify-center text-xs font-medium cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-l-sm ${
-                    isRowSelected(i)
-                      ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                      : ""
-                  }`}
-                  onClick={(e) => handleRowClick(i, e)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    onContextMenu?.(e, "row");
-                  }}
-                >
-                  {row}
-                </div>
-              ))}
-            </div>
-            <div
-              className="flex-1 grid"
-              style={{
-                gridTemplateRows: `repeat(${rows}, 1fr)`,
-                gridTemplateColumns: `repeat(${cols}, 1fr)`,
-              }}
-            >
-              {Array.from({ length: rows * cols }).map((_, i) => {
-                const row = Math.floor(i / cols),
-                  col = i % cols;
-                const isSelected = isWellSelected(row, col);
-                const wellColor = getWellColor(row, col);
-                const wellId = getWellId(row, col, rowLabels, colLabels);
-                return (
-                  <div
-                    key={`${row}-${col}`}
-                    ref={(el) => (wellRefs.current[wellId] = el)}
-                    data-well-id={wellId}
-                    className={`m-0.5 rounded-full cursor-pointer border ${
-                      isSelected
-                        ? "border-blue-500 dark:border-blue-400"
-                        : "border-gray-300 dark:border-gray-600"
-                    }`}
-                    style={{
-                      backgroundColor: wellColor || "transparent",
-                      boxShadow: isSelected
-                        ? "0 0 0 2px rgba(59, 130, 246, 0.4)"
-                        : "none",
-                    }}
-                    onClick={(e) => handleWellClick(row, col, e)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      onContextMenu?.(e, "well");
-                    }}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* Non-well types (dish, flask, chamber) - unchanged from original */
-        <div
-          className="absolute inset-0 flex items-center justify-center"
-          onContextMenu={(e) => {
-            e.preventDefault();
-            onContextMenu?.(e, type);
-          }}
-        >
-          {type === "dish" && (
-            <div className="w-3/4 h-3/4 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center">
-              <span className="text-gray-700 dark:text-gray-300">
-                {plateType}
-              </span>
-            </div>
-          )}
-          {type === "flask" && (
-            <div className="w-3/4 h-3/4 border border-gray-300 dark:border-gray-600 flex items-center">
-              <div className="w-1/4 h-full bg-gray-100 dark:bg-gray-700 border-r border-gray-300 dark:border-gray-600" />
-              <span className="text-gray-700 dark:text-gray-300 ml-4">
-                {plateType}
-              </span>
-            </div>
-          )}
-          {type === "chamber" && (
-            <div
-              className="w-3/4 h-3/4 border border-gray-300 dark:border-gray-600 grid"
-              style={{
-                gridTemplateRows: `repeat(${rows}, 1fr)`,
-                gridTemplateColumns: `repeat(${cols}, 1fr)`,
-              }}
-            >
-              {Array.from({ length: rows * cols }).map((_, i) => (
-                <div
-                  key={i}
-                  className="border border-gray-300 dark:border-gray-600 flex items-center justify-center"
-                >
-                  <span className="text-xs text-gray-600 dark:text-gray-400">
-                    {i + 1}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Selection rectangle overlay */}
-      {isSelecting && selectionRect && (
-        <div
-          className="absolute pointer-events-none border-2 border-dashed border-blue-500 bg-blue-500/10"
-          style={{
-            left: Math.min(selectionRect.startX, selectionRect.endX) + "px",
-            top: Math.min(selectionRect.startY, selectionRect.endY) + "px",
-            width: Math.abs(selectionRect.endX - selectionRect.startX) + "px",
-            height: Math.abs(selectionRect.endY - selectionRect.startY) + "px",
-            zIndex: 5,
-          }}
-        />
-      )}
-
-      {/* Plate label */}
-      <div className="absolute top-2 left-2 text-xs text-gray-500 dark:text-gray-400">
+    <div className="relative">
+      {/* Plate label - MOVED OUTSIDE */}
+      <div className="text-xs text-gray-500 dark:text-gray-400 absolute -top-6 left-2">
         {plateType} {id ? `#${id}` : ""}
       </div>
 
-      {/* Dimensions display */}
-      <div className="absolute bottom-2 left-2 text-xs text-gray-500 dark:text-gray-400">
+      {/* The plate container */}
+      <div
+        ref={containerRef}
+        className="relative border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 mb-4"
+        style={{ width: "100%", aspectRatio: PLATE_RATIO }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          onContextMenu?.(e, "plate");
+        }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* For well-type plates */}
+        {type === "well" ? (
+          <div className="absolute left-0 top-0 right-0 bottom-0 flex flex-col">
+            {/* Column Labels */}
+            <div className="flex h-6">
+              <div className="w-6" />
+              <div className="flex-1 flex">
+                {colLabels.map((col, i) => (
+                  <div
+                    key={i}
+                    data-col-index={i}
+                    className={`flex-1 flex items-center justify-center text-xs font-medium cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-t-sm ${
+                      isColumnSelected(i)
+                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                        : "text-gray-600 dark:text-gray-300"
+                    }`}
+                    onClick={(e) => handleColumnClick(i, e)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      onContextMenu?.(e, "column");
+                    }}
+                  >
+                    {col}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Row labels + wells */}
+            <div className="flex-1 flex">
+              <div className="w-6 flex flex-col">
+                {rowLabels.map((row, i) => (
+                  <div
+                    key={i}
+                    data-row-index={i}
+                    className={`flex-1 flex items-center justify-center text-xs font-medium cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-l-sm ${
+                      isRowSelected(i)
+                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                        : "text-gray-600 dark:text-gray-300"
+                    }`}
+                    onClick={(e) => handleRowClick(i, e)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      onContextMenu?.(e, "row");
+                    }}
+                  >
+                    {row}
+                  </div>
+                ))}
+              </div>
+              <div
+                className="flex-1 grid"
+                style={{
+                  gridTemplateRows: `repeat(${rows}, 1fr)`,
+                  gridTemplateColumns: `repeat(${cols}, 1fr)`,
+                }}
+              >
+                {Array.from({ length: rows * cols }).map((_, i) => {
+                  const row = Math.floor(i / cols),
+                    col = i % cols;
+                  const isSelected = isWellSelected(row, col);
+                  const wellColor = getWellColor(row, col);
+                  const wellId = getWellId(row, col, rowLabels, colLabels);
+                  return (
+                    <div
+                      key={`${row}-${col}`}
+                      ref={(el) => (wellRefs.current[wellId] = el)}
+                      data-well-id={wellId}
+                      className={`m-0.5 rounded-full cursor-pointer border ${
+                        isSelected
+                          ? "border-blue-500 dark:border-blue-400"
+                          : "border-gray-300 dark:border-gray-600"
+                      }`}
+                      style={{
+                        backgroundColor: wellColor || "transparent",
+                        boxShadow: isSelected
+                          ? "0 0 0 2px rgba(59, 130, 246, 0.4)"
+                          : "none",
+                      }}
+                      onClick={(e) => handleWellClick(row, col, e)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        onContextMenu?.(e, "well");
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Non-well types (dish, flask, chamber) - unchanged from original */
+          <div
+            className="absolute inset-0 flex items-center justify-center"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              onContextMenu?.(e, type);
+            }}
+          >
+            {type === "dish" && (
+              <div className="w-3/4 h-3/4 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center">
+                <span className="text-gray-700 dark:text-gray-300">
+                  {plateType}
+                </span>
+              </div>
+            )}
+            {type === "flask" && (
+              <div className="w-3/4 h-3/4 border border-gray-300 dark:border-gray-600 flex items-center">
+                <div className="w-1/4 h-full bg-gray-100 dark:bg-gray-700 border-r border-gray-300 dark:border-gray-600" />
+                <span className="text-gray-700 dark:text-gray-300 ml-4">
+                  {plateType}
+                </span>
+              </div>
+            )}
+            {type === "chamber" && (
+              <div
+                className="w-3/4 h-3/4 border border-gray-300 dark:border-gray-600 grid"
+                style={{
+                  gridTemplateRows: `repeat(${rows}, 1fr)`,
+                  gridTemplateColumns: `repeat(${cols}, 1fr)`,
+                }}
+              >
+                {Array.from({ length: rows * cols }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="border border-gray-300 dark:border-gray-600 flex items-center justify-center"
+                  >
+                    <span className="text-xs text-gray-600 dark:text-gray-400">
+                      {i + 1}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Selection rectangle overlay */}
+        {isSelecting && selectionRect && (
+          <div
+            className="absolute pointer-events-none border-2 border-dashed border-blue-500 bg-blue-500/10"
+            style={{
+              left: Math.min(selectionRect.startX, selectionRect.endX) + "px",
+              top: Math.min(selectionRect.startY, selectionRect.endY) + "px",
+              width: Math.abs(selectionRect.endX - selectionRect.startX) + "px",
+              height:
+                Math.abs(selectionRect.endY - selectionRect.startY) + "px",
+              zIndex: 5,
+            }}
+          />
+        )}
+      </div>
+
+      {/* Dimensions display - MOVED OUTSIDE */}
+      <div className="text-xs text-gray-500 dark:text-gray-400 absolute -bottom-6 left-2">
         {`Size: ${Math.round(dimensions.width)}×${Math.round(
           dimensions.height
         )}px`}
       </div>
 
-      {/* Selected element display */}
-      <div className="absolute bottom-2 right-2 text-xs text-gray-500 dark:text-gray-400">
+      {/* Selected element display - MOVED OUTSIDE */}
+      <div className="text-xs text-gray-500 dark:text-gray-400 absolute -bottom-6 right-2">
         {`Selected: ${selectedLabel}`}
       </div>
     </div>

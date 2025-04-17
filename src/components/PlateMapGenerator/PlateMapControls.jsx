@@ -172,33 +172,49 @@ const PlateMapControls = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-2 items-center">
-        {" "}
-        {/* Wrap buttons and ID */}
+      <div className="flex gap-2 items-center flex-wrap">
         {onSave && (
           <button
             onClick={onSave}
             className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+            title="Save changes to this plate"
           >
             Save
           </button>
         )}
+
+        {/* New Clear Selection button - only clears selection state */}
         {onClear && (
           <button
-            onClick={onClear}
-            className="px-3 py-1.5 text-sm bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+            onClick={() => onClear("selection")}
+            className="px-3 py-1.5 text-sm bg-gray-400 text-white rounded-md hover:bg-gray-500 transition-colors"
+            title="Clear current selection without changing colors"
           >
-            Clear
+            Clear Selection
           </button>
         )}
+
+        {/* Renamed Reset button - clears selection and colors */}
+        {onClear && (
+          <button
+            onClick={() => onClear("reset")}
+            className="px-3 py-1.5 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+            title="Reset all well colors and clear selection"
+          >
+            Reset Plate
+          </button>
+        )}
+
         {onDelete && !isNew && (
           <button
             onClick={onDelete}
             className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            title="Delete this plate"
           >
             Delete
           </button>
         )}
+
         {/* Display Plate ID if it exists */}
         {plateId && (
           <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">

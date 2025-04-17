@@ -17,6 +17,7 @@ const PlateMapWrapper = ({
 }) => {
   // Define all handlers directly in this component
   const handleWellClick = (wellId) => {
+    // Toggle the well's selection status
     setSelectedWells((prev) =>
       prev.includes(wellId)
         ? prev.filter((id) => id !== wellId)
@@ -25,12 +26,14 @@ const PlateMapWrapper = ({
   };
 
   const handleRowClick = (rowIndex, rowLabel) => {
-    const cols = PLATE_TYPES[plateType].cols;
+    const { cols } = PLATE_TYPES[plateType];
     const rowWells = Array.from(
       { length: cols },
       (_, colIndex) => `${rowLabel}${colIndex + 1}`
     );
-    setSelectedWells(rowWells);
+
+    // Toggle the row's wells without affecting other selections
+    setSelectedWells((prev) => toggleWellSelection(rowWells, prev));
   };
 
   const handleColumnClick = (colIndex, colLabel) => {
@@ -39,11 +42,19 @@ const PlateMapWrapper = ({
       { length: rows },
       (_, rowIndex) => `${String.fromCharCode(65 + rowIndex)}${colLabel}`
     );
-    setSelectedWells(colWells);
+
+    // Toggle the column's wells without affecting other selections
+    setSelectedWells((prev) => toggleWellSelection(colWells, prev));
   };
 
-  const handleMultipleSelection = (wellIds) => {
-    setSelectedWells((prev) => toggleWellSelection(wellIds, prev));
+  const handleMultipleSelection = (wellIds, isToggle = false) => {
+    if (isToggle) {
+      // Toggle the wells without affecting other selections
+      setSelectedWells((prev) => toggleWellSelection(wellIds, prev));
+    } else {
+      // Replace selection with the new wells
+      setSelectedWells(wellIds);
+    }
   };
 
   const openContextMenu = (event, type) => {
@@ -139,14 +150,69 @@ const PlateMapGenerator = ({
     [selectedWells]
   );
 
-  const handleClearSelection = useCallback(() => {
-    setWellData((prev) => {
-      const newWellData = { ...prev };
-      selectedWells.forEach((wellId) => delete newWellData[wellId]);
-      return newWellData;
-    });
-    setSelectedWells([]);
-  }, [selectedWells]);
+  // Enhanced clear handler to support both selection clearing and full reset with undo functionality
+  const [undoStack, setUndoStack] = useState([]);
+  const [canUndo, setCanUndo] = useState(false);
+
+  // Add undo button next to the selected wells display
+  const renderUndoButton = () => {
+    if (canUndo) {
+      return (
+        <button
+          onClick={handleUndo}
+          className="ml-2 text-xs bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-300 px-2 py-1 rounded"
+          title="Undo last action"
+        >
+          Undo
+        </button>
+      );
+    }
+    return null;
+  };
+
+  const handleClearSelection = useCallback(
+    (mode = "selection") => {
+      // Store the previous state for undo functionality
+      const previousWellData = { ...wellData };
+      const previousSelectedWells = [...selectedWells];
+
+      // Add to undo stack
+      setUndoStack((prev) => [
+        ...prev,
+        { wellData: previousWellData, selectedWells: previousSelectedWells },
+      ]);
+      setCanUndo(true);
+
+      if (mode === "reset") {
+        // Full reset: Clear colors and selection
+        setWellData({});
+        setSelectedWells([]);
+        console.log("Reset plate - cleared all colors and selections");
+      } else {
+        // Just clear selection, keep colors
+        setSelectedWells([]);
+        console.log("Cleared selection only");
+      }
+    },
+    [wellData, selectedWells]
+  );
+
+  const handleUndo = useCallback(() => {
+    if (undoStack.length > 0) {
+      // Get the last state from the undo stack
+      const lastState = undoStack[undoStack.length - 1];
+
+      // Restore previous state
+      setWellData(lastState.wellData);
+      setSelectedWells(lastState.selectedWells);
+
+      // Remove the used state from the stack
+      setUndoStack((prev) => prev.slice(0, -1));
+      setCanUndo(undoStack.length > 1);
+
+      console.log("Undo operation completed");
+    }
+  }, [undoStack]);
 
   const handlePlateTypeChange = useCallback((newPlateType) => {
     setPlateType(newPlateType);
@@ -174,7 +240,7 @@ const PlateMapGenerator = ({
   }, []);
 
   return (
-    <div className="plate-map-generator border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 shadow-sm">
+    <div className="plate-map-generator max-w-3xl border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 shadow-sm">
       {/* Plate Information */}
       <div className="mb-4">
         <input
@@ -250,14 +316,15 @@ const PlateMapGenerator = ({
                   } total)`
                 : selectedWells.join(", ")}
             </span>
-            {selectedWells.length > 0 && (
+            <div className="flex space-x-1">
+              {renderUndoButton()}
               <button
-                onClick={handleClearSelection}
+                onClick={() => handleClearSelection()}
                 className="text-xs bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-300 px-2 py-1 rounded"
               >
                 Clear
               </button>
-            )}
+            </div>
           </div>
         </div>
       )}
