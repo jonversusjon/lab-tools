@@ -3,7 +3,7 @@ import {
   calculateMasterMixTable,
   copyTableToClipboard as copyTableToClipboardUtil,
 } from "../utils";
-import PlateMapCollector from "./PlateMapenerator/PlateMapCollector";
+import PlateMapCollector from "./PlateMapGenerator/PlateMapCollector";
 
 function QpcrProtocol() {
   const [numSamples, setNumSamples] = useState(1);

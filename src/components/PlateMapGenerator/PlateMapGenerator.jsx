@@ -3,6 +3,71 @@ import PlateMap from "./PlateMap";
 import { PLATE_TYPES } from "./PlateTypes";
 import PlateMapControls from "./PlateMapControls";
 
+// Separate wrapper component to isolate PlateMap rendering
+const PlateMapWrapper = ({
+  plateType,
+  selectedWells,
+  wellData,
+  plateId,
+  setSelectedWells,
+  toggleWellSelection,
+  setContextMenuPosition,
+  setContextMenuType,
+  setShowContextMenu,
+}) => {
+  // Define all handlers directly in this component
+  const handleWellClick = (wellId) => {
+    setSelectedWells((prev) =>
+      prev.includes(wellId)
+        ? prev.filter((id) => id !== wellId)
+        : [...prev, wellId]
+    );
+  };
+
+  const handleRowClick = (rowIndex, rowLabel) => {
+    const cols = PLATE_TYPES[plateType].cols;
+    const rowWells = Array.from(
+      { length: cols },
+      (_, colIndex) => `${rowLabel}${colIndex + 1}`
+    );
+    setSelectedWells(rowWells);
+  };
+
+  const handleColumnClick = (colIndex, colLabel) => {
+    const { rows } = PLATE_TYPES[plateType];
+    const colWells = Array.from(
+      { length: rows },
+      (_, rowIndex) => `${String.fromCharCode(65 + rowIndex)}${colLabel}`
+    );
+    setSelectedWells(colWells);
+  };
+
+  const handleMultipleSelection = (wellIds) => {
+    setSelectedWells((prev) => toggleWellSelection(wellIds, prev));
+  };
+
+  const openContextMenu = (event, type) => {
+    event.preventDefault();
+    setContextMenuPosition({ x: event.clientX, y: event.clientY });
+    setContextMenuType(type);
+    setShowContextMenu(true);
+  };
+
+  return (
+    <PlateMap
+      plateType={plateType}
+      onWellClick={handleWellClick}
+      onRowClick={handleRowClick}
+      onColumnClick={handleColumnClick}
+      onMultipleSelection={handleMultipleSelection}
+      selectedWells={selectedWells}
+      wellData={wellData}
+      id={plateId}
+      onContextMenu={openContextMenu}
+    />
+  );
+};
+
 /**
  * A reusable plate map generator component
  * This component can be used in different contexts throughout the application
@@ -37,42 +102,27 @@ const PlateMapGenerator = ({
   const [contextMenuType, setContextMenuType] = useState(null);
   const [showContextMenu, setShowContextMenu] = useState(false);
 
-  // Handle well selection
-  const handleWellClick = useCallback((wellId) => {
-    setSelectedWells((prev) =>
-      prev.includes(wellId)
-        ? prev.filter((id) => id !== wellId)
-        : [...prev, wellId]
-    );
-  }, []);
+  // Helper function to toggle multiple well selections
+  const toggleWellSelection = (wellIds, currentSelection) => {
+    // Check if all wells in wellIds are already selected
+    const allSelected = wellIds.every((id) => currentSelection.includes(id));
 
-  // Handle row selection
-  const handleRowClick = useCallback(
-    (rowIndex, rowLabel) => {
-      const cols = PLATE_TYPES[plateType].cols;
-      const rowWells = Array.from(
-        { length: cols },
-        (_, colIndex) => `${rowLabel}${colIndex + 1}`
-      );
-      setSelectedWells(rowWells);
-    },
-    [plateType]
-  );
+    if (allSelected) {
+      // If all are selected, remove them all from selection
+      return currentSelection.filter((id) => !wellIds.includes(id));
+    } else {
+      // Otherwise, add any wells that aren't already selected
+      const newSelection = [...currentSelection];
+      wellIds.forEach((id) => {
+        if (!newSelection.includes(id)) {
+          newSelection.push(id);
+        }
+      });
+      return newSelection;
+    }
+  };
 
-  // Handle column selection
-  const handleColumnClick = useCallback(
-    (colIndex, colLabel) => {
-      const { rows } = PLATE_TYPES[plateType];
-      const colWells = Array.from(
-        { length: rows },
-        (_, rowIndex) => `${String.fromCharCode(65 + rowIndex)}${colLabel}`
-      );
-      setSelectedWells(colWells);
-    },
-    [plateType]
-  );
-
-  // Handle color change
+  // Rest of the handlers (that don't need to be accessed by PlateMap)
   const handleColorChange = useCallback(
     (color) => {
       setCurrentColor(color);
@@ -89,7 +139,6 @@ const PlateMapGenerator = ({
     [selectedWells]
   );
 
-  // Handle clearing selected wells
   const handleClearSelection = useCallback(() => {
     setWellData((prev) => {
       const newWellData = { ...prev };
@@ -99,13 +148,11 @@ const PlateMapGenerator = ({
     setSelectedWells([]);
   }, [selectedWells]);
 
-  // Handle plate type change
   const handlePlateTypeChange = useCallback((newPlateType) => {
     setPlateType(newPlateType);
     setSelectedWells([]);
   }, []);
 
-  // Handle save plate
   const handleSavePlate = useCallback(() => {
     if (onSavePlate) {
       onSavePlate({
@@ -118,20 +165,10 @@ const PlateMapGenerator = ({
     setSelectedWells([]);
   }, [plateId, plateType, wellData, plateMetadata, onSavePlate]);
 
-  // Handle delete plate
   const handleDeletePlate = useCallback(() => {
     if (onDeletePlate) onDeletePlate(plateId);
   }, [plateId, onDeletePlate]);
 
-  // Context menu handler
-  const openContextMenu = useCallback((event, type) => {
-    event.preventDefault();
-    setContextMenuPosition({ x: event.clientX, y: event.clientY });
-    setContextMenuType(type);
-    setShowContextMenu(true);
-  }, []);
-
-  // Add handler to close context menu (can be triggered by PlateMapControls)
   const closeContextMenu = useCallback(() => {
     setShowContextMenu(false);
   }, []);
@@ -188,23 +225,40 @@ const PlateMapGenerator = ({
         // openContextMenu={openContextMenu}
       />
 
-      {/* Plate Map */}
-      <PlateMap
+      {/* Plate Map - Using the wrapper component */}
+      <PlateMapWrapper
         plateType={plateType}
-        onWellClick={handleWellClick}
-        onRowClick={handleRowClick}
-        onColumnClick={handleColumnClick}
         selectedWells={selectedWells}
         wellData={wellData}
-        id={plateId} // Ensure plateId is passed correctly
-        // Pass openContextMenu to PlateMap to trigger on right-click
-        onContextMenu={openContextMenu}
+        plateId={plateId}
+        setSelectedWells={setSelectedWells}
+        toggleWellSelection={toggleWellSelection}
+        setContextMenuPosition={setContextMenuPosition}
+        setContextMenuType={setContextMenuType}
+        setShowContextMenu={setShowContextMenu}
       />
 
       {/* Selected Wells Display */}
       {selectedWells.length > 0 && (
         <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded text-sm text-gray-600 dark:text-gray-300">
-          Selected: {selectedWells.join(", ")}
+          <div className="flex justify-between items-center">
+            <span>
+              Selected:{" "}
+              {selectedWells.length > 10
+                ? `${selectedWells.slice(0, 10).join(", ")}... (${
+                    selectedWells.length
+                  } total)`
+                : selectedWells.join(", ")}
+            </span>
+            {selectedWells.length > 0 && (
+              <button
+                onClick={handleClearSelection}
+                className="text-xs bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-300 px-2 py-1 rounded"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
