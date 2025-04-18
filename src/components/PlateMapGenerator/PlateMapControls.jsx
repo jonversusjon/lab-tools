@@ -22,6 +22,25 @@ const PLATE_CATEGORIES = {
   ],
 };
 
+// Color elements that can be styled
+const COLOR_ELEMENTS = [
+  { id: "fillColor", label: "Fill", icon: "🔵" },
+  { id: "borderColor", label: "Border", icon: "◯" },
+  { id: "backgroundColor", label: "Background", icon: "□" },
+];
+
+// Predefined color options
+const PRESET_COLORS = [
+  "#3b82f6", // Blue
+  "#ef4444", // Red
+  "#10b981", // Green
+  "#f59e0b", // Amber
+  "#8b5cf6", // Purple
+  "#ec4899", // Pink
+  "#6b7280", // Gray
+  "#000000", // Black
+];
+
 const PlateMapControls = ({
   plateType,
   onPlateTypeChange,
@@ -29,7 +48,6 @@ const PlateMapControls = ({
   onClear,
   onDelete,
   onColorChange,
-  color = "#3b82f6", // Default blue color
   selectedElements = [],
   contextMenuItems = [], // Additional context menu items
   plateId, // Prop is received
@@ -41,20 +59,33 @@ const PlateMapControls = ({
   onCloseContextMenu,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
-  // Remove local context menu state if controlled by parent
-  // const [showContextMenu, setShowContextMenu] = useState(false);
-  // const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
-  // const [contextMenuType, setContextMenuType] = useState(null);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [activeColorElement, setActiveColorElement] = useState("fillColor");
+  const [lastUsedColors, setLastUsedColors] = useState({
+    fillColor: "#3b82f6",
+    borderColor: "#000000",
+    backgroundColor: "#f3f4f6",
+  });
 
   const dropdownRef = useRef(null);
   const contextMenuRef = useRef(null);
   const colorPickerRef = useRef(null);
+  const colorButtonsRef = useRef(null);
 
   // Handle outside clicks to close dropdowns and context menu
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
+      }
+
+      if (
+        colorPickerRef.current &&
+        !colorPickerRef.current.contains(event.target) &&
+        colorButtonsRef.current &&
+        !colorButtonsRef.current.contains(event.target)
+      ) {
+        setShowColorPicker(false);
       }
 
       // Close context menu on outside click
@@ -84,24 +115,69 @@ const PlateMapControls = ({
     [onPlateTypeChange]
   );
 
-  // Handle color change
+  // Change the active color element (fill, border, background)
+  const handleColorElementChange = useCallback((elementId) => {
+    setActiveColorElement(elementId);
+  }, []);
+
+  // Handle color change from the color picker input
   const handleColorChange = useCallback(
     (event) => {
-      onColorChange?.(event.target.value);
+      const newColor = event.target.value;
+      setLastUsedColors((prev) => ({
+        ...prev,
+        [activeColorElement]: newColor,
+      }));
+
+      // Only update if we have a color change handler
+      if (onColorChange) {
+        onColorChange(newColor, activeColorElement);
+      }
     },
-    [onColorChange]
+    [onColorChange, activeColorElement]
+  );
+
+  // Apply the selected preset color
+  const handleApplyColor = useCallback(
+    (presetColor = null) => {
+      const colorToApply = presetColor || lastUsedColors[activeColorElement];
+
+      // Update last used color for this element if a preset was provided
+      if (presetColor) {
+        setLastUsedColors((prev) => ({
+          ...prev,
+          [activeColorElement]: presetColor,
+        }));
+      }
+
+      // Apply the color
+      if (onColorChange) {
+        onColorChange(colorToApply, activeColorElement);
+      }
+
+      // Close the color picker if a preset was clicked
+      if (presetColor) {
+        setShowColorPicker(false);
+      }
+    },
+    [onColorChange, activeColorElement, lastUsedColors]
   );
 
   // Update context menu handlers to also close the menu via the prop
   const handleSetContextColor = useCallback(() => {
-    onColorChange?.(color);
+    onColorChange?.(lastUsedColors[activeColorElement], activeColorElement);
     onCloseContextMenu?.(); // Close menu
-  }, [onColorChange, color, onCloseContextMenu]);
+  }, [onColorChange, lastUsedColors, activeColorElement, onCloseContextMenu]);
 
   const handleClearContext = useCallback(() => {
     onClear?.();
     onCloseContextMenu?.(); // Close menu
   }, [onClear, onCloseContextMenu]);
+
+  // Toggle the color picker visibility
+  const toggleColorPicker = useCallback(() => {
+    setShowColorPicker((prev) => !prev);
+  }, []);
 
   return (
     <div className="flex flex-wrap gap-2 mb-4 items-center">
@@ -157,18 +233,107 @@ const PlateMapControls = ({
         )}
       </div>
 
-      {/* Color Picker */}
-      <div className="flex items-center gap-2">
-        <label className="text-sm text-gray-700 dark:text-gray-300">
-          Color:
-        </label>
-        <input
-          ref={colorPickerRef}
-          type="color"
-          value={color}
-          onChange={handleColorChange}
-          className="w-8 h-8 p-0.5 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer"
-        />
+      {/* Enhanced Color Controls */}
+      <div className="relative flex items-center gap-2">
+        <div
+          ref={colorButtonsRef}
+          className="flex items-center border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden"
+        >
+          {/* Color Element Selector Buttons */}
+          {COLOR_ELEMENTS.map((elem) => (
+            <button
+              key={elem.id}
+              onClick={() => handleColorElementChange(elem.id)}
+              className={`px-2 py-1 border-r last:border-r-0 border-gray-300 dark:border-gray-600 text-sm ${
+                activeColorElement === elem.id
+                  ? "bg-gray-200 dark:bg-gray-600 font-medium"
+                  : "bg-white dark:bg-gray-700"
+              }`}
+              title={`Set ${elem.label} Color`}
+            >
+              <span className="flex items-center gap-1">
+                <span>{elem.icon}</span>
+                <span className="hidden sm:inline">{elem.label}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Current Color and Apply Button */}
+        <div className="flex items-center">
+          <button
+            onClick={() => handleApplyColor()}
+            className="flex items-center gap-1 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-l-md hover:bg-gray-50 dark:hover:bg-gray-600"
+            title="Apply current color"
+          >
+            <div
+              className="w-4 h-4 rounded-sm border border-gray-400"
+              style={{ backgroundColor: lastUsedColors[activeColorElement] }}
+            />
+            <span className="text-sm">Apply</span>
+          </button>
+
+          {/* Toggle Color Picker */}
+          <button
+            onClick={toggleColorPicker}
+            className="px-2 py-1 bg-white dark:bg-gray-700 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-md hover:bg-gray-50 dark:hover:bg-gray-600"
+            title="More colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Color Picker Flyout */}
+        {showColorPicker && (
+          <div
+            ref={colorPickerRef}
+            className="absolute top-full left-0 mt-1 p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-10"
+          >
+            {/* Color Picker Element */}
+            <div className="mb-2">
+              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                {`${
+                  COLOR_ELEMENTS.find((e) => e.id === activeColorElement)?.label
+                } Color:`}
+              </label>
+              <input
+                type="color"
+                value={lastUsedColors[activeColorElement]}
+                onChange={handleColorChange}
+                className="w-full h-8 p-0.5 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer"
+              />
+            </div>
+
+            {/* Color Presets */}
+            <div>
+              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                Presets:
+              </label>
+              <div className="grid grid-cols-4 gap-1">
+                {PRESET_COLORS.map((presetColor, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleApplyColor(presetColor)}
+                    className="w-8 h-8 rounded-md border border-gray-300 dark:border-gray-600 cursor-pointer"
+                    style={{ backgroundColor: presetColor }}
+                    title={presetColor}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Action Buttons */}
@@ -248,12 +413,21 @@ const PlateMapControls = ({
             <div className="py-1">
               {contextMenuType === "well" && (
                 <>
-                  <button
-                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-                    onClick={handleSetContextColor}
-                  >
-                    Set color
-                  </button>
+                  <div className="flex flex-col gap-1 px-3 py-1">
+                    {COLOR_ELEMENTS.map((elem) => (
+                      <button
+                        key={elem.id}
+                        className="w-full text-left px-2 py-1 text-sm flex items-center gap-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-sm"
+                        onClick={() => {
+                          setActiveColorElement(elem.id);
+                          handleSetContextColor();
+                        }}
+                      >
+                        <span>{elem.icon}</span>
+                        <span>Set {elem.label.toLowerCase()} color</span>
+                      </button>
+                    ))}
+                  </div>
                   <button
                     className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
                     onClick={handleClearContext}
@@ -265,12 +439,21 @@ const PlateMapControls = ({
 
               {contextMenuType === "row" && (
                 <>
-                  <button
-                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-                    onClick={handleSetContextColor}
-                  >
-                    Set row color
-                  </button>
+                  <div className="flex flex-col gap-1 px-3 py-1">
+                    {COLOR_ELEMENTS.map((elem) => (
+                      <button
+                        key={elem.id}
+                        className="w-full text-left px-2 py-1 text-sm flex items-center gap-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-sm"
+                        onClick={() => {
+                          setActiveColorElement(elem.id);
+                          handleSetContextColor();
+                        }}
+                      >
+                        <span>{elem.icon}</span>
+                        <span>Set row {elem.label.toLowerCase()} color</span>
+                      </button>
+                    ))}
+                  </div>
                   <button
                     className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
                     onClick={handleClearContext}
@@ -282,12 +465,21 @@ const PlateMapControls = ({
 
               {contextMenuType === "column" && (
                 <>
-                  <button
-                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-                    onClick={handleSetContextColor}
-                  >
-                    Set column color
-                  </button>
+                  <div className="flex flex-col gap-1 px-3 py-1">
+                    {COLOR_ELEMENTS.map((elem) => (
+                      <button
+                        key={elem.id}
+                        className="w-full text-left px-2 py-1 text-sm flex items-center gap-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-sm"
+                        onClick={() => {
+                          setActiveColorElement(elem.id);
+                          handleSetContextColor();
+                        }}
+                      >
+                        <span>{elem.icon}</span>
+                        <span>Set column {elem.label.toLowerCase()} color</span>
+                      </button>
+                    ))}
+                  </div>
                   <button
                     className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
                     onClick={handleClearContext}

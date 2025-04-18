@@ -556,9 +556,23 @@ const PlateMap = ({
   };
 
   // Get well color based on well data
-  const getWellColor = (row, col) => {
+  const getWellStyles = (row, col) => {
     const wellId = `${rowLabels[row]}${colLabels[col]}`;
-    return wellData[wellId]?.color || null;
+    const data = wellData[wellId] || {};
+
+    return {
+      backgroundColor: data.fillColor || "transparent",
+      borderColor:
+        data.borderColor ||
+        (selectedWells.includes(wellId)
+          ? "rgba(59, 130, 246, 1)"
+          : "rgba(209, 213, 219, 1)"),
+      boxShadow: selectedWells.includes(wellId)
+        ? "0 0 0 2px rgba(59, 130, 246, 0.4)"
+        : "none",
+      // Add background div style if needed
+      backgroundSquare: data.backgroundColor || "transparent",
+    };
   };
 
   // Prepare a label for the selected element
@@ -656,30 +670,44 @@ const PlateMap = ({
                   const row = Math.floor(i / cols),
                     col = i % cols;
                   const isSelected = isWellSelected(row, col);
-                  const wellColor = getWellColor(row, col);
+                  const wellStyles = getWellStyles(row, col);
                   const wellId = getWellId(row, col, rowLabels, colLabels);
                   return (
                     <div
                       key={`${row}-${col}`}
                       ref={(el) => (wellRefs.current[wellId] = el)}
                       data-well-id={wellId}
-                      className={`m-0.5 rounded-full cursor-pointer border ${
-                        isSelected
-                          ? "border-blue-500 dark:border-blue-400"
-                          : "border-gray-300 dark:border-gray-600"
-                      }`}
-                      style={{
-                        backgroundColor: wellColor || "transparent",
-                        boxShadow: isSelected
-                          ? "0 0 0 2px rgba(59, 130, 246, 0.4)"
-                          : "none",
-                      }}
-                      onClick={(e) => handleWellClick(row, col, e)}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        onContextMenu?.(e, "well");
-                      }}
-                    />
+                      className="m-0.5 relative"
+                    >
+                      {/* Background square */}
+                      {wellStyles.backgroundSquare !== "transparent" && (
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            backgroundColor: wellStyles.backgroundSquare,
+                            zIndex: 0,
+                          }}
+                        />
+                      )}
+                      {/* The actual well */}
+                      <div
+                        className={`rounded-full cursor-pointer border z-10 relative w-full h-full ${
+                          isSelected
+                            ? "border-blue-500 dark:border-blue-400"
+                            : ""
+                        }`}
+                        style={{
+                          backgroundColor: wellStyles.backgroundColor,
+                          borderColor: wellStyles.borderColor,
+                          boxShadow: wellStyles.boxShadow,
+                        }}
+                        onClick={(e) => handleWellClick(row, col, e)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          onContextMenu?.(e, "well");
+                        }}
+                      />
+                    </div>
                   );
                 })}
               </div>

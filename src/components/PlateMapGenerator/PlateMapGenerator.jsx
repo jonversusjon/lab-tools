@@ -96,7 +96,49 @@ const PlateMapGenerator = ({
   const [plateType, setPlateType] = useState(initialPlateType);
   const [selectedWells, setSelectedWells] = useState([]);
   const [wellData, setWellData] = useState(plateData.wellData || {});
-  const [currentColor, setCurrentColor] = useState("#3b82f6"); // Default blue
+  const [currentColors, setCurrentColors] = useState({
+    fillColor: "#3b82f6", // Default blue for fill
+    borderColor: "#000000", // Default black for border
+    backgroundColor: "#f3f4f6", // Default light gray for background
+  });
+  const [activeColorElement, setActiveColorElement] = useState("fillColor");
+
+  // Function to handle changing which color property is being edited
+  const handleColorElementChange = useCallback(
+    (elementType) => {
+      setActiveColorElement(elementType);
+      // When switching between color elements, update the color picker to show the current color for that element
+      const currentColorForElement = currentColors[elementType];
+      if (currentColorForElement) {
+        // Only update the displayed color, don't apply to wells
+        setCurrentColors((prev) => ({ ...prev }));
+      }
+    },
+    [currentColors]
+  );
+
+  // UI elements for selecting which color property to edit
+  const renderColorElement = () => (
+    <div className="flex space-x-2 mb-3">
+      {["fillColor", "borderColor", "backgroundColor"].map((element) => (
+        <button
+          key={element}
+          onClick={() => handleColorElementChange(element)}
+          className={`px-3 py-1 text-xs rounded-md ${
+            activeColorElement === element
+              ? "bg-blue-500 text-white"
+              : "bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300"
+          }`}
+        >
+          {element === "fillColor"
+            ? "Fill"
+            : element === "borderColor"
+            ? "Border"
+            : "Background"}
+        </button>
+      ))}
+    </div>
+  );
   const [plateMetadata, setPlateMetadata] = useState(
     plateData.metadata || {
       name: plateData.name || `Plate ${plateId || 1}`,
@@ -133,21 +175,31 @@ const PlateMapGenerator = ({
     }
   };
 
-  // Rest of the handlers (that don't need to be accessed by PlateMap)
+  // Enhanced color change handler for multiple color elements
   const handleColorChange = useCallback(
-    (color) => {
-      setCurrentColor(color);
+    (color, elementType = activeColorElement) => {
+      // Update the current color for this element type
+      setCurrentColors((prev) => ({
+        ...prev,
+        [elementType]: color,
+      }));
+
+      // Apply color to selected wells
       if (selectedWells.length > 0) {
         setWellData((prev) => {
           const newWellData = { ...prev };
           selectedWells.forEach((wellId) => {
-            newWellData[wellId] = { ...newWellData[wellId], color };
+            // Create or update the well data
+            newWellData[wellId] = {
+              ...newWellData[wellId], // Keep existing properties
+              [elementType]: color, // Update only the specific color element
+            };
           });
           return newWellData;
         });
       }
     },
-    [selectedWells]
+    [selectedWells, activeColorElement]
   );
 
   // Enhanced clear handler to support both selection clearing and full reset with undo functionality
@@ -278,17 +330,15 @@ const PlateMapGenerator = ({
         onClear={handleClearSelection}
         onDelete={handleDeletePlate}
         onColorChange={handleColorChange}
-        color={currentColor}
+        color={currentColors[activeColorElement]}
         selectedElements={selectedWells}
-        plateId={plateId} // Ensure plateId is passed correctly
+        plateId={plateId}
         isNew={isNewPlate}
-        // Pass context menu props
         showContextMenu={showContextMenu}
         contextMenuPosition={contextMenuPosition}
         contextMenuType={contextMenuType}
         onCloseContextMenu={closeContextMenu}
-        // Pass openContextMenu if needed by controls (e.g., for a general plate context menu)
-        // openContextMenu={openContextMenu}
+        renderColorElement={renderColorElement}
       />
 
       {/* Plate Map - Using the wrapper component */}
