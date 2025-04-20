@@ -24,7 +24,7 @@ const PLATE_CATEGORIES = {
 
 // Color elements that can be styled
 const COLOR_ELEMENTS = [
-  { id: "fillColor", label: "Fill", icon: "🔵" },
+  { id: "fillColor", label: "Well", icon: "🔵" }, // Changed "Fill" to "Well"
   { id: "borderColor", label: "Border", icon: "◯" },
   { id: "backgroundColor", label: "Background", icon: "□" },
 ];
@@ -59,18 +59,25 @@ const PlateMapControls = ({
   onCloseContextMenu,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showColorPicker, setShowColorPicker] = useState(false);
   const [activeColorElement, setActiveColorElement] = useState("fillColor");
   const [lastUsedColors, setLastUsedColors] = useState({
     fillColor: "#3b82f6",
     borderColor: "#000000",
     backgroundColor: "#f3f4f6",
   });
+  const [activeColorPickerElement, setActiveColorPickerElement] =
+    useState(null);
+  // Add a ref to track color picker instances
+  const colorPickerRefs = useRef({});
 
   const dropdownRef = useRef(null);
   const contextMenuRef = useRef(null);
-  const colorPickerRef = useRef(null);
   const colorButtonsRef = useRef(null);
+
+  // Define closeColorPicker before it's used in useEffect dependencies
+  const closeColorPicker = useCallback(() => {
+    setActiveColorPickerElement(null);
+  }, []);
 
   // Handle outside clicks to close dropdowns and context menu
   useEffect(() => {
@@ -79,21 +86,27 @@ const PlateMapControls = ({
         setShowDropdown(false);
       }
 
+      // Improved check for color picker clicks
       if (
-        colorPickerRef.current &&
-        !colorPickerRef.current.contains(event.target) &&
-        colorButtonsRef.current &&
-        !colorButtonsRef.current.contains(event.target)
+        activeColorPickerElement &&
+        colorPickerRefs.current[activeColorPickerElement] &&
+        !colorPickerRefs.current[activeColorPickerElement].contains(
+          event.target
+        ) &&
+        !event.target.closest(".color-swatch")
       ) {
-        setShowColorPicker(false);
+        closeColorPicker();
       }
 
       // Close context menu on outside click
       if (
         contextMenuRef.current &&
         !contextMenuRef.current.contains(event.target) &&
-        (!colorPickerRef.current ||
-          !colorPickerRef.current.contains(event.target))
+        (!activeColorPickerElement ||
+          !colorPickerRefs.current[activeColorPickerElement] ||
+          !colorPickerRefs.current[activeColorPickerElement].contains(
+            event.target
+          ))
       ) {
         // Use the callback passed from the parent
         onCloseContextMenu?.();
@@ -104,7 +117,7 @@ const PlateMapControls = ({
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [onCloseContextMenu]); // Add onCloseContextMenu to dependency array
+  }, [onCloseContextMenu, activeColorPickerElement, closeColorPicker]);
 
   // Handle plate type change
   const handlePlateTypeChange = useCallback(
@@ -115,10 +128,18 @@ const PlateMapControls = ({
     [onPlateTypeChange]
   );
 
-  // Change the active color element (fill, border, background)
-  const handleColorElementChange = useCallback((elementId) => {
-    setActiveColorElement(elementId);
-  }, []);
+  // Change the active color element and apply the color immediately
+  const handleColorElementChange = useCallback(
+    (elementId) => {
+      setActiveColorElement(elementId);
+
+      // Apply the color immediately
+      if (onColorChange) {
+        onColorChange(lastUsedColors[elementId], elementId);
+      }
+    },
+    [onColorChange, lastUsedColors]
+  );
 
   // Handle color change from the color picker input
   const handleColorChange = useCallback(
@@ -157,10 +178,10 @@ const PlateMapControls = ({
 
       // Close the color picker if a preset was clicked
       if (presetColor) {
-        setShowColorPicker(false);
+        closeColorPicker();
       }
     },
-    [onColorChange, activeColorElement, lastUsedColors]
+    [onColorChange, activeColorElement, lastUsedColors, closeColorPicker]
   );
 
   // Update context menu handlers to also close the menu via the prop
@@ -174,9 +195,39 @@ const PlateMapControls = ({
     onCloseContextMenu?.(); // Close menu
   }, [onClear, onCloseContextMenu]);
 
-  // Toggle the color picker visibility
-  const toggleColorPicker = useCallback(() => {
-    setShowColorPicker((prev) => !prev);
+  // Toggle the color picker visibility without applying color
+  const toggleColorPicker = useCallback(
+    (elementId = null) => {
+      // If an element ID is provided, use it, otherwise use the current active element
+      const targetElement = elementId || activeColorElement;
+
+      // Toggle the color picker for the target element
+      setActiveColorPickerElement((prev) =>
+        prev === targetElement ? null : targetElement
+      );
+
+      // Also set this as the active color element if it's not already
+      if (targetElement !== activeColorElement) {
+        setActiveColorElement(targetElement);
+      }
+    },
+    [activeColorElement]
+  );
+
+  // Toggle color picker for a specific element (used by color swatch click)
+  const toggleColorPickerForElement = useCallback(
+    (elementId, event) => {
+      event.stopPropagation(); // Prevent triggering the parent button click
+      toggleColorPicker(elementId);
+    },
+    [toggleColorPicker]
+  );
+
+  // Set color picker ref for the current element
+  const setColorPickerRef = useCallback((element, ref) => {
+    if (ref) {
+      colorPickerRefs.current[element] = ref;
+    }
   }, []);
 
   return (
@@ -235,105 +286,73 @@ const PlateMapControls = ({
 
       {/* Enhanced Color Controls */}
       <div className="relative flex items-center gap-2">
+        {/* Color Element Selector Buttons - Each with integrated color picker */}
         <div
           ref={colorButtonsRef}
           className="flex items-center border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden"
         >
-          {/* Color Element Selector Buttons */}
           {COLOR_ELEMENTS.map((elem) => (
-            <button
-              key={elem.id}
-              onClick={() => handleColorElementChange(elem.id)}
-              className={`px-2 py-1 border-r last:border-r-0 border-gray-300 dark:border-gray-600 text-sm ${
-                activeColorElement === elem.id
-                  ? "bg-gray-200 dark:bg-gray-600 font-medium"
-                  : "bg-white dark:bg-gray-700"
-              }`}
-              title={`Set ${elem.label} Color`}
-            >
-              <span className="flex items-center gap-1">
-                <span>{elem.icon}</span>
+            <div key={elem.id} className="relative">
+              <button
+                onClick={() => handleColorElementChange(elem.id)}
+                className={`px-2 py-1 border-r last:border-r-0 border-gray-300 dark:border-gray-600 text-sm flex items-center gap-2 ${
+                  activeColorElement === elem.id
+                    ? "bg-gray-200 dark:bg-gray-600 font-medium"
+                    : "bg-white dark:bg-gray-700"
+                }`}
+                title={`Apply ${elem.label} Color`}
+              >
+                <div
+                  className="w-4 h-4 rounded-sm border border-gray-400 color-swatch cursor-pointer"
+                  style={{ backgroundColor: lastUsedColors[elem.id] }}
+                  onClick={(e) => toggleColorPickerForElement(elem.id, e)}
+                  title="Select color"
+                />
                 <span className="hidden sm:inline">{elem.label}</span>
-              </span>
-            </button>
+              </button>
+
+              {/* Color Picker Flyout for this element */}
+              {activeColorPickerElement === elem.id && (
+                <div
+                  ref={(ref) => setColorPickerRef(elem.id, ref)}
+                  className="absolute left-0 top-full mt-1 p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-10"
+                  style={{ minWidth: "200px" }}
+                >
+                  {/* Color Picker Element */}
+                  <div className="mb-2">
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                      {`${elem.label} Color:`}
+                    </label>
+                    <input
+                      type="color"
+                      value={lastUsedColors[elem.id]}
+                      onChange={handleColorChange}
+                      className="w-full h-8 p-0.5 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Color Presets */}
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                      Presets:
+                    </label>
+                    <div className="grid grid-cols-4 gap-1">
+                      {PRESET_COLORS.map((presetColor, index) => (
+                        <button
+                          key={index}
+                          onClick={() => handleApplyColor(presetColor)}
+                          className="w-8 h-8 rounded-md border border-gray-300 dark:border-gray-600 cursor-pointer"
+                          style={{ backgroundColor: presetColor }}
+                          title={presetColor}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           ))}
         </div>
-
-        {/* Current Color and Apply Button */}
-        <div className="flex items-center">
-          <button
-            onClick={() => handleApplyColor()}
-            className="flex items-center gap-1 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-l-md hover:bg-gray-50 dark:hover:bg-gray-600"
-            title="Apply current color"
-          >
-            <div
-              className="w-4 h-4 rounded-sm border border-gray-400"
-              style={{ backgroundColor: lastUsedColors[activeColorElement] }}
-            />
-            <span className="text-sm">Apply</span>
-          </button>
-
-          {/* Toggle Color Picker */}
-          <button
-            onClick={toggleColorPicker}
-            className="px-2 py-1 bg-white dark:bg-gray-700 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-md hover:bg-gray-50 dark:hover:bg-gray-600"
-            title="More colors"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Color Picker Flyout */}
-        {showColorPicker && (
-          <div
-            ref={colorPickerRef}
-            className="absolute top-full left-0 mt-1 p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-10"
-          >
-            {/* Color Picker Element */}
-            <div className="mb-2">
-              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
-                {`${
-                  COLOR_ELEMENTS.find((e) => e.id === activeColorElement)?.label
-                } Color:`}
-              </label>
-              <input
-                type="color"
-                value={lastUsedColors[activeColorElement]}
-                onChange={handleColorChange}
-                className="w-full h-8 p-0.5 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer"
-              />
-            </div>
-
-            {/* Color Presets */}
-            <div>
-              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
-                Presets:
-              </label>
-              <div className="grid grid-cols-4 gap-1">
-                {PRESET_COLORS.map((presetColor, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleApplyColor(presetColor)}
-                    className="w-8 h-8 rounded-md border border-gray-300 dark:border-gray-600 cursor-pointer"
-                    style={{ backgroundColor: presetColor }}
-                    title={presetColor}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Action Buttons */}
