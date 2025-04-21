@@ -24,13 +24,13 @@ const PLATE_CATEGORIES = {
 
 // Color elements that can be styled
 const COLOR_ELEMENTS = [
-  { id: "fillColor", label: "Well", icon: "🔵" }, // Changed "Fill" to "Well"
+  { id: "fillColor", label: "Well", icon: "🔵" },
   { id: "borderColor", label: "Border", icon: "◯" },
   { id: "backgroundColor", label: "Background", icon: "□" },
 ];
 
-// Predefined color options
-const PRESET_COLORS = [
+// Default predefined color options
+const DEFAULT_PRESET_COLORS = [
   "#3b82f6", // Blue
   "#ef4444", // Red
   "#10b981", // Green
@@ -40,6 +40,9 @@ const PRESET_COLORS = [
   "#6b7280", // Gray
   "#000000", // Black
 ];
+
+// LocalStorage key for custom presets
+const CUSTOM_PRESETS_STORAGE_KEY = "protocalc_custom_color_presets";
 
 const PlateMapControls = ({
   plateType,
@@ -67,12 +70,40 @@ const PlateMapControls = ({
   });
   const [activeColorPickerElement, setActiveColorPickerElement] =
     useState(null);
+  // Add state for custom presets
+  const [customPresets, setCustomPresets] = useState([]);
+  const [editingPreset, setEditingPreset] = useState(null); // For tracking which preset is being edited
+
   // Add a ref to track color picker instances
   const colorPickerRefs = useRef({});
-
   const dropdownRef = useRef(null);
   const contextMenuRef = useRef(null);
   const colorButtonsRef = useRef(null);
+  const customColorInputRef = useRef(null);
+
+  // Load custom presets from localStorage
+  useEffect(() => {
+    try {
+      const savedPresets = localStorage.getItem(CUSTOM_PRESETS_STORAGE_KEY);
+      if (savedPresets) {
+        setCustomPresets(JSON.parse(savedPresets));
+      }
+    } catch (error) {
+      console.error("Error loading custom color presets:", error);
+    }
+  }, []);
+
+  // Save custom presets to localStorage when they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        CUSTOM_PRESETS_STORAGE_KEY,
+        JSON.stringify(customPresets)
+      );
+    } catch (error) {
+      console.error("Error saving custom color presets:", error);
+    }
+  }, [customPresets]);
 
   // Define closeColorPicker before it's used in useEffect dependencies
   const closeColorPicker = useCallback(() => {
@@ -230,6 +261,40 @@ const PlateMapControls = ({
     }
   }, []);
 
+  // Add a new custom preset
+  const addCustomPreset = useCallback(
+    (color) => {
+      // Don't add duplicate colors
+      if (!customPresets.includes(color)) {
+        setCustomPresets((prev) => [...prev, color]);
+      }
+    },
+    [customPresets]
+  );
+
+  // Remove a custom preset
+  const removeCustomPreset = useCallback((colorToRemove) => {
+    setCustomPresets((prev) => prev.filter((color) => color !== colorToRemove));
+  }, []);
+
+  // Start editing a custom preset
+  const startEditPreset = useCallback((color) => {
+    setEditingPreset(color);
+  }, []);
+
+  // Update a preset color
+  const updatePresetColor = useCallback(
+    (oldColor, newColor) => {
+      if (oldColor === editingPreset) {
+        setCustomPresets((prev) =>
+          prev.map((color) => (color === oldColor ? newColor : color))
+        );
+        setEditingPreset(null);
+      }
+    },
+    [editingPreset]
+  );
+
   return (
     <div className="flex flex-wrap gap-2 mb-4 items-center">
       {/* Plate Type Selector */}
@@ -284,39 +349,50 @@ const PlateMapControls = ({
         )}
       </div>
 
-      {/* Enhanced Color Controls */}
+      {/* Enhanced Color Controls - Split Buttons Design */}
       <div className="relative flex items-center gap-2">
-        {/* Color Element Selector Buttons - Each with integrated color picker */}
-        <div
-          ref={colorButtonsRef}
-          className="flex items-center border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden"
-        >
+        {/* Color Element Split Buttons - each with color picker and apply functionality */}
+        <div ref={colorButtonsRef} className="flex items-center gap-1">
           {COLOR_ELEMENTS.map((elem) => (
-            <div key={elem.id} className="relative">
-              <button
-                onClick={() => handleColorElementChange(elem.id)}
-                className={`px-2 py-1 border-r last:border-r-0 border-gray-300 dark:border-gray-600 text-sm flex items-center gap-2 ${
-                  activeColorElement === elem.id
-                    ? "bg-gray-200 dark:bg-gray-600 font-medium"
-                    : "bg-white dark:bg-gray-700"
-                }`}
-                title={`Apply ${elem.label} Color`}
-              >
-                <div
-                  className="w-4 h-4 rounded-sm border border-gray-400 color-swatch cursor-pointer"
-                  style={{ backgroundColor: lastUsedColors[elem.id] }}
+            <div key={elem.id} className="relative flex">
+              {/* Split button design - left side is color swatch, right side is apply button */}
+              <div className="flex border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
+                {/* Left side - color swatch that opens color picker */}
+                <button
+                  className={`px-2 py-1.5 flex items-center justify-center ${
+                    activeColorElement === elem.id
+                      ? "bg-gray-100 dark:bg-gray-600"
+                      : "bg-white dark:bg-gray-700"
+                  }`}
                   onClick={(e) => toggleColorPickerForElement(elem.id, e)}
-                  title="Select color"
-                />
-                <span className="hidden sm:inline">{elem.label}</span>
-              </button>
+                  title={`Select ${elem.label.toLowerCase()} color`}
+                >
+                  <div
+                    className="w-5 h-5 rounded-sm border border-gray-400 shadow-sm"
+                    style={{ backgroundColor: lastUsedColors[elem.id] }}
+                  />
+                </button>
+
+                {/* Right side - labeled button that applies the color */}
+                <button
+                  onClick={() => handleColorElementChange(elem.id)}
+                  className={`px-2 py-1 text-sm border-l border-gray-300 dark:border-gray-600 ${
+                    activeColorElement === elem.id
+                      ? "bg-gray-100 dark:bg-gray-600 font-medium"
+                      : "bg-white dark:bg-gray-700"
+                  }`}
+                  title={`Apply ${elem.label.toLowerCase()} color`}
+                >
+                  <span className="inline-block min-w-14">{elem.label}</span>
+                </button>
+              </div>
 
               {/* Color Picker Flyout for this element */}
               {activeColorPickerElement === elem.id && (
                 <div
                   ref={(ref) => setColorPickerRef(elem.id, ref)}
-                  className="absolute left-0 top-full mt-1 p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-10"
-                  style={{ minWidth: "200px" }}
+                  className="absolute left-0 top-full mt-1 p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50"
+                  style={{ minWidth: "250px" }}
                 >
                   {/* Color Picker Element */}
                   <div className="mb-2">
@@ -331,15 +407,15 @@ const PlateMapControls = ({
                     />
                   </div>
 
-                  {/* Color Presets */}
-                  <div>
+                  {/* Default Color Presets */}
+                  <div className="mb-3">
                     <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
-                      Presets:
+                      Default Presets:
                     </label>
                     <div className="grid grid-cols-4 gap-1">
-                      {PRESET_COLORS.map((presetColor, index) => (
+                      {DEFAULT_PRESET_COLORS.map((presetColor, index) => (
                         <button
-                          key={index}
+                          key={`default-${index}`}
                           onClick={() => handleApplyColor(presetColor)}
                           className="w-8 h-8 rounded-md border border-gray-300 dark:border-gray-600 cursor-pointer"
                           style={{ backgroundColor: presetColor }}
@@ -347,6 +423,137 @@ const PlateMapControls = ({
                         />
                       ))}
                     </div>
+                  </div>
+
+                  {/* Custom Color Presets with Management */}
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-sm text-gray-600 dark:text-gray-300">
+                        Custom Presets:
+                      </label>
+
+                      {/* Add to presets button */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() =>
+                            addCustomPreset(lastUsedColors[elem.id])
+                          }
+                          className="text-xs px-2 py-0.5 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center gap-1"
+                          title="Add current color to presets"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3 w-3"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 4v16m8-8H4"
+                            />
+                          </svg>
+                          <span>Add</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Custom presets grid */}
+                    {customPresets.length > 0 ? (
+                      <div className="grid grid-cols-4 gap-1 mb-1">
+                        {customPresets.map((presetColor, index) => (
+                          <div
+                            key={`custom-${index}`}
+                            className="relative group"
+                          >
+                            {/* If currently editing this preset, show color input */}
+                            {editingPreset === presetColor ? (
+                              <input
+                                type="color"
+                                defaultValue={presetColor}
+                                ref={customColorInputRef}
+                                onChange={(e) =>
+                                  updatePresetColor(presetColor, e.target.value)
+                                }
+                                onBlur={(e) =>
+                                  updatePresetColor(presetColor, e.target.value)
+                                }
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                autoFocus
+                              />
+                            ) : null}
+
+                            {/* Color swatch button with overlay controls */}
+                            <button
+                              onClick={() => handleApplyColor(presetColor)}
+                              className="w-8 h-8 rounded-md border border-gray-300 dark:border-gray-600 cursor-pointer"
+                              style={{ backgroundColor: presetColor }}
+                              title={`Use ${presetColor}`}
+                            />
+
+                            {/* Overlay controls (edit/delete) */}
+                            <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-0.5 rounded-md transition-opacity">
+                              {/* Edit button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  startEditPreset(presetColor);
+                                }}
+                                className="text-white p-1 hover:bg-white hover:bg-opacity-20 rounded"
+                                title="Edit color"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-3 w-3"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                                  />
+                                </svg>
+                              </button>
+
+                              {/* Delete button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeCustomPreset(presetColor);
+                                }}
+                                className="text-white p-1 hover:bg-white hover:bg-opacity-20 rounded"
+                                title="Remove color"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-3 w-3"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 italic mb-2">
+                        No custom presets yet. Add colors by clicking the "Add"
+                        button.
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
