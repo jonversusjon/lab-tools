@@ -172,7 +172,7 @@ const PlateMapControls = ({
     [onColorChange, lastUsedColors]
   );
 
-  // Handle color change from the color picker input
+  // Handle color change from the color picker input - only update UI state without applying color
   const handleColorChange = useCallback(
     (event) => {
       const newColor = event.target.value;
@@ -181,12 +181,10 @@ const PlateMapControls = ({
         [activeColorElement]: newColor,
       }));
 
-      // Only update if we have a color change handler
-      if (onColorChange) {
-        onColorChange(newColor, activeColorElement);
-      }
+      // Remove the color application logic - color is now only updated in the UI
+      // The user must explicitly click the apply button to apply the color
     },
-    [onColorChange, activeColorElement]
+    [activeColorElement]
   );
 
   // Apply the selected preset color

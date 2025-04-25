@@ -8,8 +8,8 @@ function AppHeader({ darkMode, toggleDarkMode }) {
   };
 
   return (
-    <header className="bg-white dark:bg-gray-800 shadow-lg transition-colors duration-300 sticky top-0 z-10">
-      <div className="px-4 flex items-center justify-between h-16">
+    <header className="bg-white dark:bg-gray-800 shadow-lg transition-colors duration-300 sticky top-0 z-50">
+      <div className="px-4 flex items-center justify-between h-16 relative">
         {/* Hamburger Menu Button */}
         <button
           onClick={toggleMenu}
@@ -71,7 +71,7 @@ function AppHeader({ darkMode, toggleDarkMode }) {
 
         {/* Mobile Menu Flyout */}
         {menuOpen && (
-          <div className="absolute top-16 left-0 w-full bg-white dark:bg-gray-800 shadow-lg p-4 border-t border-gray-200 dark:border-gray-700 transition-all duration-300 transform origin-top-left">
+          <div className="absolute top-full left-0 w-full bg-white dark:bg-gray-800 shadow-lg p-4 border-t border-gray-200 dark:border-gray-700 transition-all duration-300 transform origin-top z-50">
             <div className="space-y-3">
               <a
                 href="#"
