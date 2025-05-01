@@ -38,16 +38,20 @@ function AppHeader({ darkMode, toggleDarkMode }) {
           Lab Tools (Notion Supplement)
         </h1>
 
-        {/* Dark Mode Toggle */}
+        {/* Dark Mode Toggle - Enhanced Version */}
         <button
           onClick={toggleDarkMode}
-          className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 shadow-sm"
+          className={`p-2 rounded-full flex items-center justify-center w-10 h-10 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+            darkMode
+              ? "bg-blue-700 text-yellow-300 shadow-inner"
+              : "bg-yellow-100 text-gray-800 shadow"
+          }`}
           aria-label="Toggle dark mode"
         >
           {darkMode ? (
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
+              className="h-5 w-5 transition-transform duration-300 transform rotate-0"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -60,7 +64,7 @@ function AppHeader({ darkMode, toggleDarkMode }) {
           ) : (
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
+              className="h-5 w-5 transition-transform duration-300 transform rotate-0"
               viewBox="0 0 20 20"
               fill="currentColor"
             >

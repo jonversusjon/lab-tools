@@ -70,7 +70,7 @@ const PlateMapCollector = ({ onPlatesChange, initialPlates = [] }) => {
     <div className="plate-map-collector">
       {/* Existing plates */}
       {plates.map((plate) => (
-        <div key={plate.id} className="mb-6">
+        <div key={plate.id} className="mb-6 w-full">
           <PlateMapGenerator
             initialPlateType={plate.type}
             onSavePlate={handleSavePlate}

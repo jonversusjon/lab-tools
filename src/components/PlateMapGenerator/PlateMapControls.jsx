@@ -187,16 +187,34 @@ const PlateMapControls = ({
     [activeColorElement]
   );
 
+  // Add this function with the other handlers in the component
+  const handleClearContext = useCallback(() => {
+    // Determine what to clear based on the contextMenuType
+    if (contextMenuType === "plate") {
+      // For plate context, reset the entire plate
+      onClear?.("reset");
+    } else {
+      // For well, row, or column context, just clear the selection
+      onClear?.("selection");
+    }
+
+    // Close the context menu
+    onCloseContextMenu?.();
+  }, [onClear, onCloseContextMenu, contextMenuType]);
   // Apply the selected preset color
   const handleApplyColor = useCallback(
     (presetColor = null) => {
-      const colorToApply = presetColor || lastUsedColors[activeColorElement];
+      // Handle "none" color - pass "transparent" as the actual color value
+      const colorToApply =
+        presetColor === "none"
+          ? "transparent"
+          : presetColor || lastUsedColors[activeColorElement];
 
       // Update last used color for this element if a preset was provided
       if (presetColor) {
         setLastUsedColors((prev) => ({
           ...prev,
-          [activeColorElement]: presetColor,
+          [activeColorElement]: colorToApply,
         }));
       }
 
@@ -219,10 +237,11 @@ const PlateMapControls = ({
     onCloseContextMenu?.(); // Close menu
   }, [onColorChange, lastUsedColors, activeColorElement, onCloseContextMenu]);
 
-  const handleClearContext = useCallback(() => {
-    onClear?.();
+  // New handler for removing color via context menu
+  const handleRemoveColor = useCallback(() => {
+    onColorChange?.("transparent", activeColorElement);
     onCloseContextMenu?.(); // Close menu
-  }, [onClear, onCloseContextMenu]);
+  }, [onColorChange, activeColorElement, onCloseContextMenu]);
 
   // Toggle the color picker visibility without applying color
   const toggleColorPicker = useCallback(
@@ -399,10 +418,40 @@ const PlateMapControls = ({
                     </label>
                     <input
                       type="color"
-                      value={lastUsedColors[elem.id]}
+                      value={
+                        lastUsedColors[elem.id] === "transparent"
+                          ? "#ffffff"
+                          : lastUsedColors[elem.id]
+                      }
                       onChange={handleColorChange}
                       className="w-full h-8 p-0.5 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer"
                     />
+                  </div>
+
+                  {/* None option */}
+                  <div className="mb-2">
+                    <button
+                      onClick={() => handleApplyColor("none")}
+                      className={`w-full px-2 py-1.5 text-sm border rounded-md flex items-center justify-center gap-2
+                        ${
+                          lastUsedColors[elem.id] === "transparent"
+                            ? "bg-gray-100 dark:bg-gray-700 border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400"
+                            : "border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        }`}
+                    >
+                      <span className="bg-gray-200 dark:bg-gray-600 w-4 h-4 inline-block rounded-sm">
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="w-4 h-4 text-gray-500 dark:text-gray-400"
+                        >
+                          <path
+                            fill="currentColor"
+                            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+                          />
+                        </svg>
+                      </span>
+                      <span>None (Transparent)</span>
+                    </button>
                   </div>
 
                   {/* Default Color Presets */}
@@ -651,6 +700,20 @@ const PlateMapControls = ({
                         <span>Set {elem.label.toLowerCase()} color</span>
                       </button>
                     ))}
+                    {/* Remove color options */}
+                    {COLOR_ELEMENTS.map((elem) => (
+                      <button
+                        key={`remove-${elem.id}`}
+                        className="w-full text-left px-2 py-1 text-sm flex items-center gap-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-sm"
+                        onClick={() => {
+                          setActiveColorElement(elem.id);
+                          handleRemoveColor();
+                        }}
+                      >
+                        <span>❌</span>
+                        <span>Remove {elem.label.toLowerCase()} color</span>
+                      </button>
+                    ))}
                   </div>
                   <button
                     className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -677,6 +740,20 @@ const PlateMapControls = ({
                         <span>Set row {elem.label.toLowerCase()} color</span>
                       </button>
                     ))}
+                    {/* Remove color options */}
+                    {COLOR_ELEMENTS.map((elem) => (
+                      <button
+                        key={`remove-${elem.id}`}
+                        className="w-full text-left px-2 py-1 text-sm flex items-center gap-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-sm"
+                        onClick={() => {
+                          setActiveColorElement(elem.id);
+                          handleRemoveColor();
+                        }}
+                      >
+                        <span>❌</span>
+                        <span>Remove row {elem.label.toLowerCase()} color</span>
+                      </button>
+                    ))}
                   </div>
                   <button
                     className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -701,6 +778,22 @@ const PlateMapControls = ({
                       >
                         <span>{elem.icon}</span>
                         <span>Set column {elem.label.toLowerCase()} color</span>
+                      </button>
+                    ))}
+                    {/* Remove color options */}
+                    {COLOR_ELEMENTS.map((elem) => (
+                      <button
+                        key={`remove-${elem.id}`}
+                        className="w-full text-left px-2 py-1 text-sm flex items-center gap-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-sm"
+                        onClick={() => {
+                          setActiveColorElement(elem.id);
+                          handleRemoveColor();
+                        }}
+                      >
+                        <span>❌</span>
+                        <span>
+                          Remove column {elem.label.toLowerCase()} color
+                        </span>
                       </button>
                     ))}
                   </div>

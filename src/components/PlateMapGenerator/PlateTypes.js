@@ -19,5 +19,5 @@ export const PLATE_TYPES = {
   "16-chamber": { rows: 4, cols: 4, type: "chamber" },
 };
 
-// Standard plate dimensions ratio (matches actual labware)
-export const PLATE_RATIO = 127.76 / 85.48;
+// Standard aspect ratio for plates (width:height)
+export const PLATE_RATIO = 1.5;

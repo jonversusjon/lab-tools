@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import PlateMap from "./PlateMap";
 import { PLATE_TYPES } from "./PlateTypes";
 import PlateMapControls from "./PlateMapControls";
+import PlateMapLegend from "./PlateMapLegend"; // Import the new Legend component
 
 // Separate wrapper component to isolate PlateMap rendering
 const PlateMapWrapper = ({
@@ -14,6 +15,7 @@ const PlateMapWrapper = ({
   setContextMenuPosition,
   setContextMenuType,
   setShowContextMenu,
+  legend,
 }) => {
   // Define all handlers directly in this component
   const handleWellClick = (wellId) => {
@@ -75,6 +77,7 @@ const PlateMapWrapper = ({
       wellData={wellData}
       id={plateId}
       onContextMenu={openContextMenu}
+      legend={legend} // Pass the legend data to PlateMap
     />
   );
 };
@@ -102,6 +105,9 @@ const PlateMapGenerator = ({
     backgroundColor: "#f3f4f6", // Default light gray for background
   });
   const [activeColorElement, setActiveColorElement] = useState("fillColor");
+
+  // Add legend state
+  const [legend, setLegend] = useState(plateData.legend || { colors: {} });
 
   // Function to handle changing which color property is being edited
   const handleColorElementChange = useCallback(
@@ -190,10 +196,26 @@ const PlateMapGenerator = ({
           const newWellData = { ...prev };
           selectedWells.forEach((wellId) => {
             // Create or update the well data
-            newWellData[wellId] = {
-              ...newWellData[wellId], // Keep existing properties
-              [elementType]: color, // Update only the specific color element
-            };
+            if (color === "transparent") {
+              // If transparent, remove the property if it exists
+              if (newWellData[wellId]) {
+                const updatedWell = { ...newWellData[wellId] };
+                delete updatedWell[elementType];
+
+                // If the well has no remaining properties, remove it entirely
+                if (Object.keys(updatedWell).length === 0) {
+                  delete newWellData[wellId];
+                } else {
+                  newWellData[wellId] = updatedWell;
+                }
+              }
+            } else {
+              // Otherwise set the color normally
+              newWellData[wellId] = {
+                ...newWellData[wellId], // Keep existing properties
+                [elementType]: color, // Update only the specific color element
+              };
+            }
           });
           return newWellData;
         });
@@ -201,6 +223,11 @@ const PlateMapGenerator = ({
     },
     [selectedWells, activeColorElement]
   );
+
+  // Handle legend changes from the Legend component
+  const handleLegendChange = useCallback((newLegend) => {
+    setLegend(newLegend);
+  }, []);
 
   // Enhanced clear handler to support both selection clearing and full reset with undo functionality
   const [undoStack, setUndoStack] = useState([]);
@@ -227,26 +254,32 @@ const PlateMapGenerator = ({
       // Store the previous state for undo functionality
       const previousWellData = { ...wellData };
       const previousSelectedWells = [...selectedWells];
+      const previousLegend = { ...legend }; // Also store legend state for undo
 
       // Add to undo stack
       setUndoStack((prev) => [
         ...prev,
-        { wellData: previousWellData, selectedWells: previousSelectedWells },
+        {
+          wellData: previousWellData,
+          selectedWells: previousSelectedWells,
+          legend: previousLegend,
+        },
       ]);
       setCanUndo(true);
 
       if (mode === "reset") {
-        // Full reset: Clear colors and selection
+        // Full reset: Clear colors, selection, and legend
         setWellData({});
         setSelectedWells([]);
-        console.log("Reset plate - cleared all colors and selections");
+        setLegend({ colors: {} }); // Reset legend too
+        console.log("Reset plate - cleared all colors, selections, and legend");
       } else {
-        // Just clear selection, keep colors
+        // Just clear selection, keep colors and legend
         setSelectedWells([]);
         console.log("Cleared selection only");
       }
     },
-    [wellData, selectedWells]
+    [wellData, selectedWells, legend]
   );
 
   const handleUndo = useCallback(() => {
@@ -254,9 +287,12 @@ const PlateMapGenerator = ({
       // Get the last state from the undo stack
       const lastState = undoStack[undoStack.length - 1];
 
-      // Restore previous state
+      // Restore previous state including legend
       setWellData(lastState.wellData);
       setSelectedWells(lastState.selectedWells);
+      if (lastState.legend) {
+        setLegend(lastState.legend);
+      }
 
       // Remove the used state from the stack
       setUndoStack((prev) => prev.slice(0, -1));
@@ -277,11 +313,12 @@ const PlateMapGenerator = ({
         id: plateId,
         type: plateType,
         wellData,
+        legend, // Include legend in the saved plate data
         metadata: plateMetadata,
       });
     }
     setSelectedWells([]);
-  }, [plateId, plateType, wellData, plateMetadata, onSavePlate]);
+  }, [plateId, plateType, wellData, legend, plateMetadata, onSavePlate]);
 
   const handleDeletePlate = useCallback(() => {
     if (onDeletePlate) onDeletePlate(plateId);
@@ -291,8 +328,26 @@ const PlateMapGenerator = ({
     setShowContextMenu(false);
   }, []);
 
+  // Handler for clearing context menu items
+  const handleClearContext = useCallback(() => {
+    // Implement the context menu clear behavior
+    if (selectedWells.length > 0) {
+      // Remove colors from selected wells based on context menu type
+      setWellData((prev) => {
+        const newWellData = { ...prev };
+        selectedWells.forEach((wellId) => {
+          if (newWellData[wellId]) {
+            delete newWellData[wellId];
+          }
+        });
+        return newWellData;
+      });
+    }
+    closeContextMenu();
+  }, [selectedWells, closeContextMenu]);
+
   return (
-    <div className="plate-map-generator max-w-3xl border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 shadow-sm">
+    <div className="plate-map-generator border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 shadow-sm">
       {/* Plate Information */}
       <div className="mb-4">
         <input
@@ -338,21 +393,37 @@ const PlateMapGenerator = ({
         contextMenuPosition={contextMenuPosition}
         contextMenuType={contextMenuType}
         onCloseContextMenu={closeContextMenu}
+        onClearContext={handleClearContext} // Add missing handler for context menu clear
         renderColorElement={renderColorElement}
       />
 
-      {/* Plate Map - Using the wrapper component */}
-      <PlateMapWrapper
-        plateType={plateType}
-        selectedWells={selectedWells}
-        wellData={wellData}
-        plateId={plateId}
-        setSelectedWells={setSelectedWells}
-        toggleWellSelection={toggleWellSelection}
-        setContextMenuPosition={setContextMenuPosition}
-        setContextMenuType={setContextMenuType}
-        setShowContextMenu={setShowContextMenu}
-      />
+      {/* Two-column layout for plate map and legend */}
+      <div className="flex flex-col md:flex-row gap-4">
+        {/* Plate Map - Using the wrapper component */}
+        <div className="md:flex-1">
+          <PlateMapWrapper
+            plateType={plateType}
+            selectedWells={selectedWells}
+            wellData={wellData}
+            plateId={plateId}
+            setSelectedWells={setSelectedWells}
+            toggleWellSelection={toggleWellSelection}
+            setContextMenuPosition={setContextMenuPosition}
+            setContextMenuType={setContextMenuType}
+            setShowContextMenu={setShowContextMenu}
+            legend={legend} // Pass legend to the wrapper
+          />
+        </div>
+
+        {/* Legend Section */}
+        <div className="md:w-64 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-md">
+          <PlateMapLegend
+            wellData={wellData}
+            legend={legend}
+            onLegendChange={handleLegendChange}
+          />
+        </div>
+      </div>
 
       {/* Selected Wells Display */}
       {selectedWells.length > 0 && (

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { PLATE_TYPES, PLATE_RATIO } from "./PlateTypes";
+import tinycolor from "tinycolor2";
 import {
   getWellId,
   getWellIndices,
@@ -21,6 +22,7 @@ const PlateMap = ({
   wellData = {},
   id,
   onContextMenu,
+  legend = { colors: {} }, // Add legend prop
 }) => {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -555,24 +557,125 @@ const PlateMap = ({
     );
   };
 
-  // Get well color based on well data
+  // Get well color based on well data and find any associated labels
   const getWellStyles = (row, col) => {
     const wellId = `${rowLabels[row]}${colLabels[col]}`;
     const data = wellData[wellId] || {};
 
+    // Build list of labels to display from legend
+    const labels = [];
+
+    // Function to collect labels from the legend for a specific color and type
+    const collectLabels = (colorType, color) => {
+      if (!color || color === "transparent") return;
+
+      const colorLegend = legend?.colors?.[colorType] || {};
+      const colorInfo = colorLegend[color];
+
+      if (colorInfo && colorInfo.label && colorInfo.applyToWells) {
+        labels.push({
+          text: colorInfo.label,
+          color: colorType === "backgroundColor" ? "#000000" : color,
+          type: colorType,
+        });
+      }
+    };
+
+    // Check each color type for labels
+    collectLabels("fillColor", data.fillColor);
+    collectLabels("borderColor", data.borderColor);
+    collectLabels("backgroundColor", data.backgroundColor);
+
     return {
-      backgroundColor: data.fillColor || "transparent",
+      backgroundColor:
+        data.fillColor === "transparent"
+          ? "transparent"
+          : data.fillColor || "transparent",
       borderColor:
-        data.borderColor ||
-        (selectedWells.includes(wellId)
-          ? "rgba(59, 130, 246, 1)"
-          : "rgba(209, 213, 219, 1)"),
+        data.borderColor === "transparent"
+          ? "transparent"
+          : data.borderColor ||
+            (selectedWells.includes(wellId)
+              ? "rgba(59, 130, 246, 1)"
+              : "rgba(209, 213, 219, 1)"),
       boxShadow: selectedWells.includes(wellId)
         ? "0 0 0 2px rgba(59, 130, 246, 0.4)"
         : "none",
       // Add background div style if needed
-      backgroundSquare: data.backgroundColor || "transparent",
+      backgroundSquare:
+        data.backgroundColor === "transparent"
+          ? "transparent"
+          : data.backgroundColor || "transparent",
+      labels: labels, // Add the collected labels
     };
+  };
+
+  // Update the well rendering part to include labels
+  const renderWellContent = (row, col) => {
+    const wellStyles = getWellStyles(row, col);
+    const hasLabels = wellStyles.labels && wellStyles.labels.length > 0;
+
+    return (
+      <>
+        {/* Background square */}
+        {wellStyles.backgroundSquare !== "transparent" && (
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundColor: wellStyles.backgroundSquare,
+              zIndex: 0,
+            }}
+          />
+        )}
+        {/* The actual well */}
+          <div
+            className={`rounded-full cursor-pointer z-10 relative w-full h-full ${
+              isWellSelected(row, col)
+                ? "border-blue-500 dark:border-blue-400"
+                : ""
+            } ${wellStyles.borderColor === "transparent" ? "" : "border-2 md:border-3 lg:border-4"}`}
+            style={{
+              backgroundColor: wellStyles.backgroundColor,
+              borderColor: wellStyles.borderColor,
+              boxShadow: wellStyles.boxShadow,
+            }}
+            onClick={(e) => handleWellClick(row, col, e)}
+            onContextMenu={(e) => {
+            e.preventDefault();
+            onContextMenu?.(e, "well");
+          }}
+        >
+          {/* Well labels */}
+          {hasLabels && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              {wellStyles.labels.map((label, index) => {
+                // Determine text color based on background contrast
+                let textColor = "#000000";
+                if (
+                  label.type === "fillColor" &&
+                  label.color !== "transparent"
+                ) {
+                  // For fill color, check if background is dark and set text to white
+                  textColor = tinycolor(label.color).isDark()
+                    ? "#ffffff"
+                    : "#000000";
+                }
+
+                return (
+                  <div
+                    key={index}
+                    className="text-[0.5rem] leading-tight overflow-hidden max-w-full px-0.5 whitespace-nowrap overflow-ellipsis"
+                    style={{ color: textColor }}
+                  >
+                    {label.text}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </>
+    );
   };
 
   // Prepare a label for the selected element
@@ -669,8 +772,6 @@ const PlateMap = ({
                 {Array.from({ length: rows * cols }).map((_, i) => {
                   const row = Math.floor(i / cols),
                     col = i % cols;
-                  const isSelected = isWellSelected(row, col);
-                  const wellStyles = getWellStyles(row, col);
                   const wellId = getWellId(row, col, rowLabels, colLabels);
                   return (
                     <div
@@ -679,34 +780,7 @@ const PlateMap = ({
                       data-well-id={wellId}
                       className="m-0.5 relative"
                     >
-                      {/* Background square */}
-                      {wellStyles.backgroundSquare !== "transparent" && (
-                        <div
-                          className="absolute inset-0"
-                          style={{
-                            backgroundColor: wellStyles.backgroundSquare,
-                            zIndex: 0,
-                          }}
-                        />
-                      )}
-                      {/* The actual well */}
-                      <div
-                        className={`rounded-full cursor-pointer border z-10 relative w-full h-full ${
-                          isSelected
-                            ? "border-blue-500 dark:border-blue-400"
-                            : ""
-                        }`}
-                        style={{
-                          backgroundColor: wellStyles.backgroundColor,
-                          borderColor: wellStyles.borderColor,
-                          boxShadow: wellStyles.boxShadow,
-                        }}
-                        onClick={(e) => handleWellClick(row, col, e)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          onContextMenu?.(e, "well");
-                        }}
-                      />
+                      {renderWellContent(row, col)}
                     </div>
                   );
                 })}
