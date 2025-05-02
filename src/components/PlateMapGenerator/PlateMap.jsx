@@ -628,19 +628,23 @@ const PlateMap = ({
           />
         )}
         {/* The actual well */}
-          <div
-            className={`rounded-full cursor-pointer z-10 relative w-full h-full ${
-              isWellSelected(row, col)
-                ? "border-blue-500 dark:border-blue-400"
-                : ""
-            } ${wellStyles.borderColor === "transparent" ? "" : "border-2 md:border-3 lg:border-4"}`}
-            style={{
-              backgroundColor: wellStyles.backgroundColor,
-              borderColor: wellStyles.borderColor,
-              boxShadow: wellStyles.boxShadow,
-            }}
-            onClick={(e) => handleWellClick(row, col, e)}
-            onContextMenu={(e) => {
+        <div
+          className={`rounded-full cursor-pointer z-10 relative w-full h-full ${
+            isWellSelected(row, col)
+              ? "border-blue-500 dark:border-blue-400"
+              : ""
+          } ${
+            wellStyles.borderColor === "transparent"
+              ? ""
+              : "border-2 md:border-3 lg:border-4"
+          }`}
+          style={{
+            backgroundColor: wellStyles.backgroundColor,
+            borderColor: wellStyles.borderColor,
+            boxShadow: wellStyles.boxShadow,
+          }}
+          onClick={(e) => handleWellClick(row, col, e)}
+          onContextMenu={(e) => {
             e.preventDefault();
             onContextMenu?.(e, "well");
           }}
@@ -698,7 +702,7 @@ const PlateMap = ({
       {/* The plate container */}
       <div
         ref={containerRef}
-        className="relative border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 mb-4"
+        className="relative border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 mb-4"
         style={{ width: "100%", aspectRatio: PLATE_RATIO }}
         onContextMenu={(e) => {
           e.preventDefault();
