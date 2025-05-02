@@ -123,7 +123,7 @@ function App() {
   }, []);
 
   const toggleDarkMode = () => {
-    const newDarkMode = toggleDarkModeUtil();
+    const newDarkMode = toggleDarkModeUtil(darkMode);
     setDarkMode(newDarkMode);
     applyDarkMode(newDarkMode);
   };
