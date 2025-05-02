@@ -629,7 +629,7 @@ const PlateMap = ({
         )}
         {/* The actual well */}
         <div
-          className={`rounded-full cursor-pointer z-10 relative w-full h-full ${
+          className={`rounded-full cursor-pointer z-10 relative w-[calc(100%-6px)] h-[calc(100%-6px)] m-0.5 ${
             isWellSelected(row, col)
               ? "border-blue-500 dark:border-blue-400"
               : ""
@@ -782,7 +782,7 @@ const PlateMap = ({
                       key={`${row}-${col}`}
                       ref={(el) => (wellRefs.current[wellId] = el)}
                       data-well-id={wellId}
-                      className="m-0.5 relative"
+                      className="m-0 relative"
                     >
                       {renderWellContent(row, col)}
                     </div>

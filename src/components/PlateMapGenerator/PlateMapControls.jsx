@@ -161,17 +161,21 @@ const PlateMapControls = ({
     [onPlateTypeChange]
   );
 
-  // Change the active color element and apply the color immediately
+  // Change the active color element AND apply the color to the selection
   const handleColorElementChange = useCallback(
     (elementId) => {
       setActiveColorElement(elementId);
 
-      // Apply the color immediately
+      // Apply the current color associated with this element to the selection
       if (onColorChange) {
         onColorChange(lastUsedColors[elementId], elementId);
+        // Clear selection after applying color via the main buttons
+        onClear?.("selection");
       }
+      // Close any open color picker when applying via the main button
+      closeColorPicker();
     },
-    [onColorChange, lastUsedColors]
+    [onColorChange, lastUsedColors, onClear, closeColorPicker] // Added dependencies back
   );
 
   // Handle color change from the color picker input - only update UI state without applying color
@@ -182,9 +186,7 @@ const PlateMapControls = ({
         ...prev,
         [activeColorElement]: newColor,
       }));
-
-      // Remove the color application logic - color is now only updated in the UI
-      // The user must explicitly click the apply button to apply the color
+      // No longer automatically applying the color when changed in the picker
     },
     [activeColorElement]
   );
@@ -226,17 +228,20 @@ const PlateMapControls = ({
     setPendingAction(null);
   }, []);
 
-  // Apply the selected preset color
+  // Apply the selected preset color or current color and clear selection afterwards
   const handleApplyColor = useCallback(
     (presetColor = null) => {
       // Handle "none" color - pass "transparent" as the actual color value
+      // If presetColor is null, it means the "Apply" button *was* clicked (but now removed),
+      // so we fall back to lastUsedColors. Now this primarily handles presets/"None".
       const colorToApply =
         presetColor === "none"
           ? "transparent"
           : presetColor || lastUsedColors[activeColorElement];
 
-      // Update last used color for this element if a preset was provided
-      if (presetColor) {
+      // Update last used color for this element when a preset or "None" is applied
+      if (presetColor !== null) {
+        // Only update if a preset/None was explicitly passed
         setLastUsedColors((prev) => ({
           ...prev,
           [activeColorElement]: colorToApply,
@@ -246,27 +251,51 @@ const PlateMapControls = ({
       // Apply the color
       if (onColorChange) {
         onColorChange(colorToApply, activeColorElement);
+
+        // Clear selection after applying color
+        onClear?.("selection");
       }
 
-      // Close the color picker if a preset was clicked
-      if (presetColor) {
+      // Close the color picker when a preset or "None" is clicked
+      // (The main apply button click is handled in handleColorElementChange)
+      if (presetColor !== null) {
         closeColorPicker();
       }
     },
-    [onColorChange, activeColorElement, lastUsedColors, closeColorPicker]
+    [
+      onColorChange,
+      activeColorElement,
+      lastUsedColors,
+      closeColorPicker,
+      onClear,
+    ]
   );
 
-  // Update context menu handlers to also close the menu via the prop
+  // Update context menu handlers to also clear selection after applying color
   const handleSetContextColor = useCallback(() => {
     onColorChange?.(lastUsedColors[activeColorElement], activeColorElement);
-    onCloseContextMenu?.(); // Close menu
-  }, [onColorChange, lastUsedColors, activeColorElement, onCloseContextMenu]);
 
-  // New handler for removing color via context menu
+    // Clear selection after applying color
+    onClear?.("selection");
+
+    onCloseContextMenu?.(); // Close menu
+  }, [
+    onColorChange,
+    lastUsedColors,
+    activeColorElement,
+    onCloseContextMenu,
+    onClear,
+  ]);
+
+  // New handler for removing color via context menu with selection clearing
   const handleRemoveColor = useCallback(() => {
     onColorChange?.("transparent", activeColorElement);
+
+    // Clear selection after removing color
+    onClear?.("selection");
+
     onCloseContextMenu?.(); // Close menu
-  }, [onColorChange, activeColorElement, onCloseContextMenu]);
+  }, [onColorChange, activeColorElement, onCloseContextMenu, onClear]);
 
   // Toggle the color picker visibility without applying color
   const toggleColorPicker = useCallback(
@@ -362,7 +391,7 @@ const PlateMapControls = ({
 
         {/* Dropdown Menu */}
         {showDropdown && (
-          <div className="absolute left-0 mt-1 z-10 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg overflow-hidden">
+          <div className="absolute left-0 mt-1 z-60 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg overflow-hidden">
             <div className="max-h-96 overflow-y-auto py-1">
               {Object.entries(PLATE_CATEGORIES).map(([category, types]) => (
                 <div key={category}>
@@ -423,7 +452,7 @@ const PlateMapControls = ({
                       ? "bg-gray-100 dark:bg-gray-600 font-medium"
                       : "bg-white dark:bg-gray-700"
                   }`}
-                  title={`Apply ${elem.label.toLowerCase()} color`}
+                  title={`Apply ${elem.label.toLowerCase()} color to selection`} // Updated title
                 >
                   <span className="inline-block min-w-14">{elem.label}</span>
                 </button>
@@ -456,7 +485,7 @@ const PlateMapControls = ({
                   {/* None option */}
                   <div className="mb-2">
                     <button
-                      onClick={() => handleApplyColor("none")}
+                      onClick={() => handleApplyColor("none")} // Use handleApplyColor again
                       className={`w-full px-2 py-1.5 text-sm border rounded-md flex items-center justify-center gap-2
                         ${
                           lastUsedColors[elem.id] === "transparent"
@@ -488,7 +517,7 @@ const PlateMapControls = ({
                       {DEFAULT_PRESET_COLORS.map((presetColor, index) => (
                         <button
                           key={`default-${index}`}
-                          onClick={() => handleApplyColor(presetColor)}
+                          onClick={() => handleApplyColor(presetColor)} // Use handleApplyColor again
                           className="w-8 h-8 rounded-md border border-gray-300 dark:border-gray-600 cursor-pointer"
                           style={{ backgroundColor: presetColor }}
                           title={presetColor}
@@ -559,7 +588,7 @@ const PlateMapControls = ({
 
                             {/* Color swatch button with overlay controls */}
                             <button
-                              onClick={() => handleApplyColor(presetColor)}
+                              onClick={() => handleApplyColor(presetColor)} // Use handleApplyColor again
                               className="w-8 h-8 rounded-md border border-gray-300 dark:border-gray-600 cursor-pointer"
                               style={{ backgroundColor: presetColor }}
                               title={`Use ${presetColor}`}
