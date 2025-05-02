@@ -101,10 +101,30 @@ const PlateMap = ({
       // Only act on left mouse button and within the plate area
       if (e.button !== 0 || type !== "well") return;
 
-      // Check if the click is on a well, row label, or column label
+      // Check if the click is on a well, well container, row label, or column label
       const isWellClick = e.target.dataset.wellId !== undefined;
+      const isWellContainerClick =
+        e.target.dataset.wellContainerId !== undefined;
       const isRowClick = e.target.dataset.rowIndex !== undefined;
       const isColClick = e.target.dataset.colIndex !== undefined;
+
+      // If clicking on a well container but not the well itself, start a selection
+      if (isWellContainerClick && !isWellClick) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const startX = e.clientX - containerRect.left;
+        const startY = e.clientY - containerRect.top;
+
+        // Store the starting well for the selection rectangle
+        const wellContainerId = e.target.dataset.wellContainerId;
+        setSelectionStart({
+          x: startX,
+          y: startY,
+          wellId: wellContainerId, // Store the well ID to potentially start selection from this well
+        });
+        setSelectionRect({ startX, startY, endX: startX, endY: startY });
+        setIsSelecting(true);
+        return;
+      }
 
       // Don't start rectangle selection if clicking directly on a well, row label, or column label
       if (isWellClick || isRowClick || isColClick) {
@@ -150,6 +170,12 @@ const PlateMap = ({
         endX: currentX,
         endY: currentY,
       }));
+
+      // If we have a wellId in the selection start, we might want to
+      // highlight the well even if the mouse is just hovering over it
+      if (selectionStart.wellId) {
+        // Could implement hover effects here if needed
+      }
     },
     [isSelecting, type, selectionStart]
   );
@@ -171,6 +197,12 @@ const PlateMap = ({
 
         // Check for modifier keys to determine the selection behavior
         const isToggleMode = e.ctrlKey || e.metaKey;
+
+        // If the selection started from a well container and is very small,
+        // ensure we at least include that starting well in the selection
+        if (selectedRegion.length === 0 && selectionStart.wellId) {
+          selectedRegion.push(selectionStart.wellId);
+        }
 
         // Trigger selection update with the wells in the region
         if (selectedRegion.length > 0 && onMultipleSelection) {
@@ -389,6 +421,7 @@ const PlateMap = ({
   // Use getWellFromEvent for global event delegation
   const handleGlobalPlateClick = useCallback(
     (e) => {
+      // Only handle clicks directly on the well circles, not their containers
       const well = getWellFromEvent(e);
       if (well) {
         // Use the extracted well information for the click handler
@@ -612,73 +645,57 @@ const PlateMap = ({
 
   // Update the well rendering part to include labels
   const renderWellContent = (row, col) => {
+    const wellId = getWellId(row, col, rowLabels, colLabels);
     const wellStyles = getWellStyles(row, col);
     const hasLabels = wellStyles.labels && wellStyles.labels.length > 0;
 
     return (
-      <>
-        {/* Background square */}
-        {wellStyles.backgroundSquare !== "transparent" && (
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundColor: wellStyles.backgroundSquare,
-              zIndex: 0,
-            }}
-          />
-        )}
-        {/* The actual well */}
-        <div
-          className={`rounded-full cursor-pointer z-10 relative w-[calc(100%-6px)] h-[calc(100%-6px)] m-0.5 ${
-            isWellSelected(row, col)
-              ? "border-blue-500 dark:border-blue-400"
-              : ""
-          } ${
-            wellStyles.borderColor === "transparent"
-              ? ""
-              : "border-2 md:border-3 lg:border-4"
-          }`}
-          style={{
-            backgroundColor: wellStyles.backgroundColor,
-            borderColor: wellStyles.borderColor,
-            boxShadow: wellStyles.boxShadow,
-          }}
-          onClick={(e) => handleWellClick(row, col, e)}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            onContextMenu?.(e, "well");
-          }}
-        >
-          {/* Well labels */}
-          {hasLabels && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-              {wellStyles.labels.map((label, index) => {
-                // Determine text color based on background contrast
-                let textColor = "#000000";
-                if (
-                  label.type === "fillColor" &&
-                  label.color !== "transparent"
-                ) {
-                  // For fill color, check if background is dark and set text to white
-                  textColor = tinycolor(label.color).isDark()
-                    ? "#ffffff"
-                    : "#000000";
-                }
+      <div
+        data-well-id={wellId}
+        className={`rounded-full cursor-pointer z-10 relative w-[calc(100%-6px)] h-[calc(100%-6px)] m-0.5 ${
+          isWellSelected(row, col) ? "border-blue-500 dark:border-blue-400" : ""
+        } ${
+          wellStyles.borderColor === "transparent"
+            ? ""
+            : "border-2 md:border-3 lg:border-4"
+        }`}
+        style={{
+          backgroundColor: wellStyles.backgroundColor,
+          borderColor: wellStyles.borderColor,
+          boxShadow: wellStyles.boxShadow,
+        }}
+        onClick={(e) => handleWellClick(row, col, e)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          onContextMenu?.(e, "well");
+        }}
+      >
+        {/* Well labels */}
+        {hasLabels && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+            {wellStyles.labels.map((label, index) => {
+              // Determine text color based on background contrast
+              let textColor = "#000000";
+              if (label.type === "fillColor" && label.color !== "transparent") {
+                // For fill color, check if background is dark and set text to white
+                textColor = tinycolor(label.color).isDark()
+                  ? "#ffffff"
+                  : "#000000";
+              }
 
-                return (
-                  <div
-                    key={index}
-                    className="text-[0.5rem] leading-tight overflow-hidden max-w-full px-0.5 whitespace-nowrap overflow-ellipsis"
-                    style={{ color: textColor }}
-                  >
-                    {label.text}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </>
+              return (
+                <div
+                  key={index}
+                  className="text-[0.5rem] leading-tight overflow-hidden max-w-full px-0.5 whitespace-nowrap overflow-ellipsis"
+                  style={{ color: textColor }}
+                >
+                  {label.text}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -781,8 +798,8 @@ const PlateMap = ({
                     <div
                       key={`${row}-${col}`}
                       ref={(el) => (wellRefs.current[wellId] = el)}
-                      data-well-id={wellId}
-                      className="m-0 relative"
+                      data-well-container-id={wellId}
+                      className="m-0 relative cursor-pointer"
                     >
                       {renderWellContent(row, col)}
                     </div>
