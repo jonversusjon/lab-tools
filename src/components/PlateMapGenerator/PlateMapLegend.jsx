@@ -288,7 +288,7 @@ const PlateMapLegend = ({
     });
 
     setColorOrder(newColorOrder);
-  }, [wellData, legend.colors, legend.colorOrder, colorTypeLabels]); // Remove colorOrder from dependencies
+  }, [wellData, legend.colors, legend.colorOrder, colorTypeLabels, colorOrder]); // Remove colorOrder from dependencies
 
   // Update legend when a label or checkbox changes
   const handleLegendItemChange = useCallback(

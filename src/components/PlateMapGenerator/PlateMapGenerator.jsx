@@ -107,7 +107,16 @@ const PlateMapGenerator = ({
   const [activeColorElement, setActiveColorElement] = useState("fillColor");
 
   // Add legend state
-  const [legend, setLegend] = useState(plateData.legend || { colors: {} });
+  const [legend, setLegend] = useState(
+    plateData.legend || {
+      colors: {},
+      colorOrder: {
+        fillColor: [],
+        borderColor: [],
+        backgroundColor: [],
+      },
+    }
+  );
 
   // Function to handle changing which color property is being edited
   const handleColorElementChange = useCallback(
@@ -226,7 +235,20 @@ const PlateMapGenerator = ({
 
   // Handle legend changes from the Legend component
   const handleLegendChange = useCallback((newLegend) => {
-    setLegend(newLegend);
+    // Ensure we're preserving the colorOrder if it exists in the new legend
+    setLegend((prevLegend) => ({
+      ...prevLegend,
+      ...newLegend,
+      // Make sure colorOrder always exists
+      colorOrder: newLegend.colorOrder ||
+        prevLegend.colorOrder || {
+          fillColor: [],
+          borderColor: [],
+          backgroundColor: [],
+        },
+    }));
+
+    console.log("Legend updated with new color order:", newLegend.colorOrder);
   }, []);
 
   // Enhanced clear handler to support both selection clearing and full reset with undo functionality
@@ -271,7 +293,14 @@ const PlateMapGenerator = ({
         // Full reset: Clear colors, selection, and legend
         setWellData({});
         setSelectedWells([]);
-        setLegend({ colors: {} }); // Reset legend too
+        setLegend({
+          colors: {},
+          colorOrder: {
+            fillColor: [],
+            borderColor: [],
+            backgroundColor: [],
+          },
+        }); // Reset legend with empty colorOrder
         console.log("Reset plate - cleared all colors, selections, and legend");
       } else {
         // Just clear selection, keep colors and legend

@@ -371,7 +371,7 @@ export const toggleWellSelection = (wells, selectedWells) => {
  * Get wells inside a selection rectangle
  * @param {Object} rect - { startX, startY, endX, endY } in screen coordinates
  * @param {Object} wellPositions - Map of well IDs to their screen positions { wellId: { x, y, width, height } }
- * @returns {Array} Array of well IDs that overlap with the rectangle
+ * @returns {Array} Array of well IDs that are entirely contained within the rectangle
  */
 export const getWellsInRectangle = (rect, wellPositions) => {
   if (!rect || !wellPositions) {
@@ -390,14 +390,12 @@ export const getWellsInRectangle = (rect, wellPositions) => {
 
   return Object.entries(wellPositions)
     .filter(([, pos]) => {
-      // Check if well overlaps with the rectangle (not completely outside)
-      return !(
-        (
-          pos.x + pos.width < left || // Well is completely to the left
-          pos.x > right || // Well is completely to the right
-          pos.y + pos.height < top || // Well is completely above
-          pos.y > bottom
-        ) // Well is completely below
+      // Check if well is ENTIRELY contained within the rectangle
+      return (
+        pos.x >= left && // Left edge of well is inside or on the left edge of rectangle
+        pos.x + pos.width <= right && // Right edge of well is inside or on the right edge of rectangle
+        pos.y >= top && // Top edge of well is inside or on the top edge of rectangle
+        pos.y + pos.height <= bottom // Bottom edge of well is inside or on the bottom edge of rectangle
       );
     })
     .map(([wellId]) => wellId);

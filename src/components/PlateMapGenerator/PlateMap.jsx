@@ -22,7 +22,7 @@ const PlateMap = ({
   wellData = {},
   id,
   onContextMenu,
-  legend = { colors: {} }, // Add legend prop
+  legend = { colors: {} },
 }) => {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -35,6 +35,12 @@ const PlateMap = ({
   const [wellPositions, setWellPositions] = useState({});
   const [lastClickedElement, setLastClickedElement] = useState(null);
   const wellRefs = useRef({});
+
+  // NEW: Add state for preview wells (wells that will be selected when mouse is released)
+  const [previewWells, setPreviewWells] = useState([]);
+
+  // NEW: Add debounce timer ref to avoid too many updates
+  const previewDebounceRef = useRef(null);
 
   // Get plate configuration based on type
   const plateConfig = PLATE_TYPES[plateType] || PLATE_TYPES["96-well"];
@@ -54,22 +60,22 @@ const PlateMap = ({
         const positions = {};
         const containerRect = containerRef.current.getBoundingClientRect();
 
-        for (let row = 0; row < rows; row++) {
-          for (let col = 0; col < cols; col++) {
-            const wellId = getWellId(row, col, rowLabels, colLabels);
-            const wellElement = wellRefs.current[wellId];
+        // Select the actual wells (not well containers)
+        const wellElements =
+          containerRef.current.querySelectorAll("[data-well-id]");
 
-            if (wellElement) {
-              const rect = wellElement.getBoundingClientRect();
-              positions[wellId] = {
-                x: rect.left - containerRect.left,
-                y: rect.top - containerRect.top,
-                width: rect.width,
-                height: rect.height,
-              };
-            }
+        wellElements.forEach((wellElement) => {
+          const wellId = wellElement.dataset.wellId;
+          if (wellId) {
+            const rect = wellElement.getBoundingClientRect();
+            positions[wellId] = {
+              x: rect.left - containerRect.left,
+              y: rect.top - containerRect.top,
+              width: rect.width,
+              height: rect.height,
+            };
           }
-        }
+        });
 
         setWellPositions(positions);
       }, 100); // Short delay to ensure DOM is updated
@@ -77,6 +83,34 @@ const PlateMap = ({
       return () => clearTimeout(timer);
     }
   }, [dimensions, rows, cols, rowLabels, colLabels, type]);
+
+  // NEW: Function to update preview wells with debouncing
+  const updatePreviewWells = useCallback(
+    (rect) => {
+      // Clear any existing timer
+      if (previewDebounceRef.current) {
+        clearTimeout(previewDebounceRef.current);
+      }
+
+      // Set a new timer with a smaller delay (20ms is more responsive)
+      previewDebounceRef.current = setTimeout(() => {
+        if (rect && Object.keys(wellPositions).length > 0) {
+          const potentialSelection = getWellsInRectangle(rect, wellPositions);
+          setPreviewWells(potentialSelection);
+        }
+      }, 20); // Reduced from 50ms to 20ms for more responsive feedback
+    },
+    [wellPositions]
+  );
+
+  // Clear preview timer on unmount
+  useEffect(() => {
+    return () => {
+      if (previewDebounceRef.current) {
+        clearTimeout(previewDebounceRef.current);
+      }
+    };
+  }, []);
 
   // Measure container & maintain the correct aspect ratio
   useEffect(() => {
@@ -165,19 +199,19 @@ const PlateMap = ({
       );
 
       // Update the end point of the selection rectangle
-      setSelectionRect((prev) => ({
-        ...prev,
+      const updatedRect = {
+        startX: selectionStart.x,
+        startY: selectionStart.y,
         endX: currentX,
         endY: currentY,
-      }));
+      };
 
-      // If we have a wellId in the selection start, we might want to
-      // highlight the well even if the mouse is just hovering over it
-      if (selectionStart.wellId) {
-        // Could implement hover effects here if needed
-      }
+      setSelectionRect(updatedRect);
+
+      // Update preview wells
+      updatePreviewWells(updatedRect);
     },
-    [isSelecting, type, selectionStart]
+    [isSelecting, type, selectionStart, updatePreviewWells]
   );
 
   // Mouse up handler for drag selection - calculate the wells in the selection
@@ -215,10 +249,11 @@ const PlateMap = ({
         }
       }
 
-      // Reset selection state
+      // Reset selection and preview state
       setIsSelecting(false);
       setSelectionStart(null);
       setSelectionRect(null);
+      setPreviewWells([]);
     },
     [
       isSelecting,
@@ -283,13 +318,19 @@ const PlateMap = ({
       );
 
       // Update the end point of the touch selection rectangle
-      setSelectionRect((prev) => ({
-        ...prev,
+      const updatedRect = {
+        startX: selectionStart.x,
+        startY: selectionStart.y,
         endX: currentX,
         endY: currentY,
-      }));
+      };
+
+      setSelectionRect(updatedRect);
+
+      // Update preview wells
+      updatePreviewWells(updatedRect);
     },
-    [isSelecting, type, selectionStart]
+    [isSelecting, type, selectionStart, updatePreviewWells]
   );
 
   const handleTouchEnd = useCallback(
@@ -334,10 +375,11 @@ const PlateMap = ({
         }
       }
 
-      // Reset selection state
+      // Reset selection and preview state
       setIsSelecting(false);
       setSelectionStart(null);
       setSelectionRect(null);
+      setPreviewWells([]);
     },
     [
       isSelecting,
@@ -595,6 +637,7 @@ const PlateMap = ({
     const wellId = `${rowLabels[row]}${colLabels[col]}`;
     const data = wellData[wellId] || {};
     const isSelected = selectedWells.includes(wellId);
+    const isPreview = previewWells.includes(wellId);
 
     // Build list of labels to display from legend
     const labels = [];
@@ -621,7 +664,6 @@ const PlateMap = ({
     collectLabels("backgroundColor", data.backgroundColor);
 
     // Determine background color, accounting for selection state
-    // Default to white for light mode or gray for dark mode instead of transparent
     let backgroundColor = "var(--well-default-bg, #ffffff)";
 
     if (data.fillColor !== undefined && data.fillColor !== "transparent") {
@@ -637,26 +679,53 @@ const PlateMap = ({
           ? "transparent"
           : data.borderColor ||
             (isSelected ? "rgba(59, 130, 246, 1)" : "rgba(209, 213, 219, 1)"),
-      boxShadow: isSelected ? "0 0 0 2px rgba(59, 130, 246, 0.4)" : "none",
+      // Enhanced shadow/glow using CSS variables for theme awareness
+      boxShadow: isSelected
+        ? "0 0 0 2px rgba(59, 130, 246, 0.4)"
+        : isPreview
+        ? // Use CSS variables for the glow effect colors
+          "0 0 0 2px var(--well-outline-color), 0 0 8px 2px var(--well-glow-color), 0 1px 3px rgba(0, 0, 0, 0.12)"
+        : "none",
       // Add background div style if needed
       backgroundSquare:
         data.backgroundColor === "transparent"
           ? "transparent"
           : data.backgroundColor || "transparent",
-      labels: labels, // Add the collected labels
+      labels: labels,
+      isPreview: isPreview,
     };
   };
 
-  // Add CSS variable to the component for theme-aware default well color
+  // Add CSS variables for theme-aware colors including glow effects
   useEffect(() => {
     // Create a style element to inject CSS variables
     const style = document.createElement("style");
     style.innerHTML = `
       :root {
         --well-default-bg: #ffffff;
+        --well-glow-color: rgba(59, 130, 246, 0.6); /* Blue glow for light mode */
+        --well-glow-color-intense: rgba(59, 130, 246, 0.7);
+        --well-outline-color: rgba(59, 130, 246, 0.3);
       }
       .dark {
         --well-default-bg: #374151;
+        --well-glow-color: rgba(250, 204, 21, 0.6); /* Yellow glow for dark mode - better contrast */
+        --well-glow-color-intense: rgba(250, 204, 21, 0.7);
+        --well-outline-color: rgba(250, 204, 21, 0.3);
+      }
+      
+      /* Custom animation for subtle pulsing with theme awareness */
+      @keyframes pulse-subtle {
+        0%, 100% { 
+          box-shadow: 0 0 0 2px var(--well-outline-color), 0 0 8px 2px var(--well-glow-color); 
+        }
+        50% { 
+          box-shadow: 0 0 0 2px var(--well-outline-color), 0 0 12px 4px var(--well-glow-color-intense); 
+        }
+      }
+      
+      .animate-pulse-subtle {
+        animation: pulse-subtle 1.5s ease-in-out infinite;
       }
     `;
     document.head.appendChild(style);
@@ -666,11 +735,12 @@ const PlateMap = ({
     };
   }, []);
 
-  // Update the well rendering part to include labels
+  // Update the well rendering part with enhanced preview effects
   const renderWellContent = (row, col) => {
     const wellId = getWellId(row, col, rowLabels, colLabels);
     const wellStyles = getWellStyles(row, col);
     const hasLabels = wellStyles.labels && wellStyles.labels.length > 0;
+    const isPreview = wellStyles.isPreview;
 
     // Calculate text size based on plate dimensions and screen size
     const getTextSizeClass = () => {
@@ -718,11 +788,19 @@ const PlateMap = ({
           wellStyles.borderColor === "transparent"
             ? ""
             : "border-2 md:border-3 lg:border-4"
+        } ${
+          isPreview
+            ? "transition-all duration-200 animate-pulse-subtle hover:translate-y-[-1px]"
+            : ""
         }`}
         style={{
           backgroundColor: wellStyles.backgroundColor,
           borderColor: wellStyles.borderColor,
           boxShadow: wellStyles.boxShadow,
+          transform: isPreview ? "translateY(-1px)" : "none",
+          // Use CSS variable for outline color
+          outline: isPreview ? "2px solid var(--well-outline-color)" : "none",
+          outlineOffset: "1px",
         }}
         onClick={(e) => handleWellClick(row, col, e)}
         onContextMenu={(e) => {
@@ -738,7 +816,7 @@ const PlateMap = ({
               let textColor = "#000000";
               if (label.type === "fillColor" && label.color !== "transparent") {
                 // For fill color, check if background is dark and set text to white
-                textColor = tinycolor(label.color).isDark()
+                textColor = tinycolor(wellStyles.backgroundColor).isDark()
                   ? "#ffffff"
                   : "#000000";
               }
@@ -919,7 +997,7 @@ const PlateMap = ({
           </div>
         )}
 
-        {/* Selection rectangle overlay */}
+        {/* Selection rectangle overlay - with increased z-index */}
         {isSelecting && selectionRect && (
           <div
             className="absolute pointer-events-none border-2 border-dashed border-blue-500 bg-blue-500/10"
@@ -929,7 +1007,7 @@ const PlateMap = ({
               width: Math.abs(selectionRect.endX - selectionRect.startX) + "px",
               height:
                 Math.abs(selectionRect.endY - selectionRect.startY) + "px",
-              zIndex: 5,
+              zIndex: 50,
             }}
           />
         )}
