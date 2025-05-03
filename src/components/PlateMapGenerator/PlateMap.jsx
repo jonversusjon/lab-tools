@@ -594,6 +594,7 @@ const PlateMap = ({
   const getWellStyles = (row, col) => {
     const wellId = `${rowLabels[row]}${colLabels[col]}`;
     const data = wellData[wellId] || {};
+    const isSelected = selectedWells.includes(wellId);
 
     // Build list of labels to display from legend
     const labels = [];
@@ -619,21 +620,24 @@ const PlateMap = ({
     collectLabels("borderColor", data.borderColor);
     collectLabels("backgroundColor", data.backgroundColor);
 
+    // Determine background color, accounting for selection state
+    // Default to white for light mode or gray for dark mode instead of transparent
+    let backgroundColor = "var(--well-default-bg, #ffffff)";
+
+    if (data.fillColor !== undefined && data.fillColor !== "transparent") {
+      backgroundColor = data.fillColor;
+    } else if (isSelected) {
+      backgroundColor = "rgba(59, 130, 246, 0.5)"; // Light blue background for selected wells
+    }
+
     return {
-      backgroundColor:
-        data.fillColor === "transparent"
-          ? "transparent"
-          : data.fillColor || "transparent",
+      backgroundColor: backgroundColor,
       borderColor:
         data.borderColor === "transparent"
           ? "transparent"
           : data.borderColor ||
-            (selectedWells.includes(wellId)
-              ? "rgba(59, 130, 246, 1)"
-              : "rgba(209, 213, 219, 1)"),
-      boxShadow: selectedWells.includes(wellId)
-        ? "0 0 0 2px rgba(59, 130, 246, 0.4)"
-        : "none",
+            (isSelected ? "rgba(59, 130, 246, 1)" : "rgba(209, 213, 219, 1)"),
+      boxShadow: isSelected ? "0 0 0 2px rgba(59, 130, 246, 0.4)" : "none",
       // Add background div style if needed
       backgroundSquare:
         data.backgroundColor === "transparent"
@@ -643,11 +647,67 @@ const PlateMap = ({
     };
   };
 
+  // Add CSS variable to the component for theme-aware default well color
+  useEffect(() => {
+    // Create a style element to inject CSS variables
+    const style = document.createElement("style");
+    style.innerHTML = `
+      :root {
+        --well-default-bg: #ffffff;
+      }
+      .dark {
+        --well-default-bg: #374151;
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
   // Update the well rendering part to include labels
   const renderWellContent = (row, col) => {
     const wellId = getWellId(row, col, rowLabels, colLabels);
     const wellStyles = getWellStyles(row, col);
     const hasLabels = wellStyles.labels && wellStyles.labels.length > 0;
+
+    // Calculate text size based on plate dimensions and screen size
+    const getTextSizeClass = () => {
+      // Base size on total wells (fewer wells = larger text)
+      const totalWells = rows * cols;
+
+      // Screen size detection using window width
+      const screenWidth = window.innerWidth;
+
+      // Determine base size class by plate density
+      let baseSize = "";
+      if (totalWells <= 24) {
+        baseSize = "text-base"; // Larger text for plates with few wells (e.g., 6-well, 12-well, 24-well)
+      } else if (totalWells <= 96) {
+        baseSize = "text-sm"; // Medium text for 96-well plates
+      } else {
+        baseSize = "text-xs"; // Small text for 384-well plates or denser
+      }
+
+      // Adjust size based on screen width
+      if (screenWidth < 640) {
+        // Small mobile screens
+        // Downgrade text size by one level on small screens
+        if (baseSize === "text-base") return "text-sm";
+        if (baseSize === "text-sm") return "text-xs";
+        return "text-[0.65rem]"; // Smaller than xs for very dense plates on mobile
+      } else if (screenWidth < 1024) {
+        // Tablets and small laptops
+        return baseSize; // Use base size
+      } else {
+        // Large screens
+        // Upgrade text size by one level on large screens
+        if (baseSize === "text-xs") return "text-sm";
+        if (baseSize === "text-sm") return "text-base";
+        return "text-lg"; // Larger than base for sparse plates on big screens
+      }
+    };
 
     return (
       <div
@@ -686,7 +746,7 @@ const PlateMap = ({
               return (
                 <div
                   key={index}
-                  className="text-[0.5rem] leading-tight overflow-hidden max-w-full px-0.5 whitespace-nowrap overflow-ellipsis"
+                  className={`${getTextSizeClass()} leading-tight overflow-hidden max-w-full px-0.5 whitespace-nowrap overflow-ellipsis`}
                   style={{ color: textColor }}
                 >
                   {label.text}
@@ -794,12 +854,16 @@ const PlateMap = ({
                   const row = Math.floor(i / cols),
                     col = i % cols;
                   const wellId = getWellId(row, col, rowLabels, colLabels);
+                  const wellStyles = getWellStyles(row, col);
                   return (
                     <div
                       key={`${row}-${col}`}
                       ref={(el) => (wellRefs.current[wellId] = el)}
                       data-well-container-id={wellId}
-                      className="m-0 relative cursor-pointer"
+                      className="m-0 z-20 relative cursor-pointer"
+                      style={{
+                        backgroundColor: wellStyles.backgroundSquare,
+                      }}
                     >
                       {renderWellContent(row, col)}
                     </div>

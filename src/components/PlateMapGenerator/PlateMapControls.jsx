@@ -29,16 +29,63 @@ const COLOR_ELEMENTS = [
   { id: "backgroundColor", label: "Background", icon: "□" },
 ];
 
-// Default predefined color options
-const DEFAULT_PRESET_COLORS = [
-  "#3b82f6", // Blue
-  "#ef4444", // Red
-  "#10b981", // Green
-  "#f59e0b", // Amber
-  "#8b5cf6", // Purple
-  "#ec4899", // Pink
-  "#6b7280", // Gray
-  "#000000", // Black
+// New structured color palette: 5 hues with 8 intensity levels each
+const COLOR_PALETTE = [
+  // Blue hues
+  [
+    "#EBF8FF",
+    "#BEE3F8",
+    "#90CDF4",
+    "#63B3ED",
+    "#4299E1",
+    "#3182CE",
+    "#2B6CB0",
+    "#2C5282",
+  ],
+  // Red hues
+  [
+    "#FFF5F5",
+    "#FED7D7",
+    "#FEB2B2",
+    "#FC8181",
+    "#F56565",
+    "#E53E3E",
+    "#C53030",
+    "#9B2C2C",
+  ],
+  // Green hues
+  [
+    "#F0FFF4",
+    "#C6F6D5",
+    "#9AE6B4",
+    "#68D391",
+    "#48BB78",
+    "#38A169",
+    "#2F855A",
+    "#276749",
+  ],
+  // Amber hues
+  [
+    "#FFFAF0",
+    "#FEEBC8",
+    "#FBD38D",
+    "#F6AD55",
+    "#ED8936",
+    "#DD6B20",
+    "#C05621",
+    "#9C4221",
+  ],
+  // Purple hues
+  [
+    "#FAF5FF",
+    "#E9D8FD",
+    "#D6BCFA",
+    "#B794F4",
+    "#9F7AEA",
+    "#805AD5",
+    "#6B46C1",
+    "#553C9A",
+  ],
 ];
 
 // LocalStorage key for custom presets
@@ -70,11 +117,12 @@ const PlateMapControls = ({
   });
   const [activeColorPickerElement, setActiveColorPickerElement] =
     useState(null);
-  // Add state for custom presets
   const [customPresets, setCustomPresets] = useState([]);
-  const [editingPreset, setEditingPreset] = useState(null); // For tracking which preset is being edited
+  const [editingPreset, setEditingPreset] = useState(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
+  // New state for expanded color palette
+  const [isColorPaletteExpanded, setIsColorPaletteExpanded] = useState(false);
 
   // Add a ref to track color picker instances
   const colorPickerRefs = useRef({});
@@ -366,6 +414,11 @@ const PlateMapControls = ({
     [editingPreset]
   );
 
+  // Toggle color palette expanded state
+  const toggleColorPaletteExpanded = useCallback(() => {
+    setIsColorPaletteExpanded((prev) => !prev);
+  }, []);
+
   return (
     <div className="flex flex-wrap gap-2 mb-4 items-center">
       {/* Plate Type Selector */}
@@ -426,7 +479,7 @@ const PlateMapControls = ({
         <div ref={colorButtonsRef} className="flex items-center gap-1">
           {COLOR_ELEMENTS.map((elem) => (
             <div key={elem.id} className="relative flex">
-              {/* Split button design - left side is color swatch, right side is apply button */}
+              {/* Split button design with color swatch and apply button */}
               <div className="flex border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
                 {/* Left side - color swatch that opens color picker */}
                 <button
@@ -508,20 +561,50 @@ const PlateMapControls = ({
                     </button>
                   </div>
 
-                  {/* Default Color Presets */}
+                  {/* Default Color Presets - New UI */}
                   <div className="mb-3">
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
-                      Default Presets:
-                    </label>
-                    <div className="grid grid-cols-4 gap-1">
-                      {DEFAULT_PRESET_COLORS.map((presetColor, index) => (
-                        <button
-                          key={`default-${index}`}
-                          onClick={() => handleApplyColor(presetColor)} // Use handleApplyColor again
-                          className="w-8 h-8 rounded-md border border-gray-300 dark:border-gray-600 cursor-pointer"
-                          style={{ backgroundColor: presetColor }}
-                          title={presetColor}
-                        />
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-sm text-gray-600 dark:text-gray-300">
+                        Default Presets:
+                      </label>
+                      <button
+                        onClick={toggleColorPaletteExpanded}
+                        className="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                      >
+                        {isColorPaletteExpanded ? "Collapse" : "Expand"}
+                      </button>
+                    </div>
+
+                    <div className="flex justify-start gap-0">
+                      {COLOR_PALETTE.map((hueSet, hueIndex) => (
+                        <div
+                          key={`hue-${hueIndex}`}
+                          className="flex flex-col gap-0"
+                        >
+                          {isColorPaletteExpanded
+                            ? hueSet.map((colorHex, intensityIndex) => (
+                                <button
+                                  key={`color-${hueIndex}-${intensityIndex}`}
+                                  onClick={() => handleApplyColor(colorHex)}
+                                  className="w-[12%] aspect-square min-w-5 max-w-8 rounded-none border-0 hover:z-10 hover:shadow-md transition-shadow cursor-pointer"
+                                  style={{ backgroundColor: colorHex }}
+                                  title={colorHex}
+                                />
+                              ))
+                            : [1, 3, 5, 7].map((intensityIndex) => (
+                                <button
+                                  key={`color-${hueIndex}-${intensityIndex}`}
+                                  onClick={() =>
+                                    handleApplyColor(hueSet[intensityIndex])
+                                  }
+                                  className="w-[12%] aspect-square min-w-5 max-w-8 rounded-none border-0 hover:z-10 hover:shadow-md transition-shadow cursor-pointer"
+                                  style={{
+                                    backgroundColor: hueSet[intensityIndex],
+                                  }}
+                                  title={hueSet[intensityIndex]}
+                                />
+                              ))}
+                        </div>
                       ))}
                     </div>
                   </div>
