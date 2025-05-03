@@ -478,12 +478,28 @@ const PlateMap = ({
       >
         {/* Well labels */}
         {hasLabels && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none">
             {wellStyles.labels.map((label, index) => {
               // Determine text color based on background contrast
               let textColor = "#000000";
-              if (label.type === "fillColor" && label.color !== "transparent") {
-                // For fill color, check if background is dark and set text to white
+
+              // Check if the background is transparent
+              const isTransparentBackground =
+                wellStyles.backgroundColor === "transparent" ||
+                wellStyles.backgroundColor ===
+                  "var(--well-default-bg, #ffffff)";
+
+              if (isTransparentBackground) {
+                // For transparent background, check dark mode
+                const isDarkMode =
+                  document.documentElement.classList.contains("dark") ||
+                  window.matchMedia("(prefers-color-scheme: dark)").matches;
+                textColor = isDarkMode ? "#ffffff" : "#000000";
+              } else if (
+                label.type === "fillColor" &&
+                label.color !== "transparent"
+              ) {
+                // For non-transparent fill color, check if background is dark and set text to white
                 textColor = tinycolor(wellStyles.backgroundColor).isDark()
                   ? "#ffffff"
                   : "#000000";
