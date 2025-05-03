@@ -1,8 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import PlateMap from "./PlateMap";
 import { PLATE_TYPES } from "./PlateTypes";
 import PlateMapControls from "./PlateMapControls";
-import PlateMapLegend from "./PlateMapLegend"; // Import the new Legend component
+import PlateMapLegend from "./PlateMapLegend";
+import { getWellsInRectangle } from "../../utils";
 
 // Separate wrapper component to isolate PlateMap rendering
 const PlateMapWrapper = ({
@@ -16,6 +17,7 @@ const PlateMapWrapper = ({
   setContextMenuType,
   setShowContextMenu,
   legend,
+  previewWells, // Add previewWells prop
 }) => {
   // Define all handlers directly in this component
   const handleWellClick = (wellId) => {
@@ -78,6 +80,7 @@ const PlateMapWrapper = ({
       id={plateId}
       onContextMenu={openContextMenu}
       legend={legend} // Pass the legend data to PlateMap
+      previewWells={previewWells} // Pass previewWells to PlateMap
     />
   );
 };
@@ -169,6 +172,236 @@ const PlateMapGenerator = ({
   });
   const [contextMenuType, setContextMenuType] = useState(null);
   const [showContextMenu, setShowContextMenu] = useState(false);
+
+  // Selection rectangle state (moved from PlateMap)
+  const selectionContainerRef = useRef(null);
+  const [selectionStart, setSelectionStart] = useState(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectionRect, setSelectionRect] = useState(null);
+  const [wellPositions, setWellPositions] = useState({});
+  const [previewWells, setPreviewWells] = useState([]);
+  const previewDebounceRef = useRef(null);
+
+  // Update well positions when wellData changes
+  useEffect(() => {
+    if (selectionContainerRef.current) {
+      // Need to wait for the next render cycle to ensure wells are rendered
+      const timer = setTimeout(() => {
+        const positions = {};
+        const containerRect =
+          selectionContainerRef.current.getBoundingClientRect();
+
+        // Select the actual wells (not well containers)
+        const wellElements =
+          selectionContainerRef.current.querySelectorAll("[data-well-id]");
+
+        wellElements.forEach((wellElement) => {
+          const wellId = wellElement.dataset.wellId;
+          if (wellId) {
+            const rect = wellElement.getBoundingClientRect();
+            positions[wellId] = {
+              x: rect.left - containerRect.left,
+              y: rect.top - containerRect.top,
+              width: rect.width,
+              height: rect.height,
+            };
+          }
+        });
+
+        setWellPositions(positions);
+      }, 100); // Short delay to ensure DOM is updated
+
+      return () => clearTimeout(timer);
+    }
+  }, [wellData, plateType]);
+
+  // Function to update preview wells with debouncing
+  const updatePreviewWells = useCallback(
+    (rect) => {
+      // Clear any existing timer
+      if (previewDebounceRef.current) {
+        clearTimeout(previewDebounceRef.current);
+      }
+
+      // Set a new timer with a small delay for responsiveness
+      previewDebounceRef.current = setTimeout(() => {
+        if (rect && Object.keys(wellPositions).length > 0) {
+          const potentialSelection = getWellsInRectangle(rect, wellPositions);
+          setPreviewWells(potentialSelection);
+        }
+      }, 20);
+    },
+    [wellPositions]
+  );
+
+  // Mouse down handler for drag selection
+  const handleMouseDown = useCallback((e) => {
+    // Only act on left mouse button
+    if (e.button !== 0) return;
+
+    const containerRect = selectionContainerRef.current.getBoundingClientRect();
+    const startX = e.clientX - containerRect.left;
+    const startY = e.clientY - containerRect.top;
+
+    // Store the starting point for the selection rectangle
+    setSelectionStart({ x: startX, y: startY });
+    setSelectionRect({ startX, startY, endX: startX, endY: startY });
+    setIsSelecting(true);
+  }, []);
+
+  // Mouse move handler for drag selection
+  const handleMouseMove = useCallback(
+    (e) => {
+      if (!isSelecting || !selectionStart) return;
+
+      const containerRect =
+        selectionContainerRef.current.getBoundingClientRect();
+      const currentX = e.clientX - containerRect.left;
+      const currentY = e.clientY - containerRect.top;
+
+      // Update the end point of the selection rectangle
+      const updatedRect = {
+        startX: selectionStart.x,
+        startY: selectionStart.y,
+        endX: currentX,
+        endY: currentY,
+      };
+
+      setSelectionRect(updatedRect);
+
+      // Update preview wells
+      updatePreviewWells(updatedRect);
+    },
+    [isSelecting, selectionStart, updatePreviewWells]
+  );
+
+  // Mouse up handler for drag selection
+  const handleMouseUp = useCallback(
+    (e) => {
+      if (!isSelecting || !selectionStart) {
+        setIsSelecting(false);
+        return;
+      }
+
+      // Calculate wells inside the selection rectangle
+      if (selectionRect && Object.keys(wellPositions).length > 0) {
+        const selectedRegion = getWellsInRectangle(
+          selectionRect,
+          wellPositions
+        );
+
+        // Check for modifier keys to determine the selection behavior
+        const isToggleMode = e.ctrlKey || e.metaKey;
+
+        // Trigger selection update with the wells in the region
+        if (selectedRegion.length > 0) {
+          // If ctrl/cmd is pressed, toggle the selection instead of replacing it
+          setSelectedWells((prev) => {
+            if (isToggleMode) {
+              return toggleWellSelection(selectedRegion, prev);
+            } else {
+              return selectedRegion;
+            }
+          });
+        }
+      }
+
+      // Reset selection and preview state
+      setIsSelecting(false);
+      setSelectionStart(null);
+      setSelectionRect(null);
+      setPreviewWells([]);
+    },
+    [isSelecting, selectionRect, wellPositions, selectionStart]
+  );
+
+  // Touch handlers for mobile devices
+  const handleTouchStart = useCallback((e) => {
+    // Prevent default to avoid scrolling when starting selection
+    e.preventDefault();
+
+    const touch = e.touches[0];
+    const containerRect = selectionContainerRef.current.getBoundingClientRect();
+    const startX = touch.clientX - containerRect.left;
+    const startY = touch.clientY - containerRect.top;
+
+    // Store the starting point for the touch selection
+    setSelectionStart({ x: startX, y: startY });
+    setSelectionRect({ startX, startY, endX: startX, endY: startY });
+    setIsSelecting(true);
+  }, []);
+
+  const handleTouchMove = useCallback(
+    (e) => {
+      if (!isSelecting || !selectionStart) return;
+
+      // Prevent default to stop scrolling while selecting
+      e.preventDefault();
+
+      const touch = e.touches[0];
+      const containerRect =
+        selectionContainerRef.current.getBoundingClientRect();
+      const currentX = touch.clientX - containerRect.left;
+      const currentY = touch.clientY - containerRect.top;
+
+      // Update the end point of the touch selection rectangle
+      const updatedRect = {
+        startX: selectionStart.x,
+        startY: selectionStart.y,
+        endX: currentX,
+        endY: currentY,
+      };
+
+      setSelectionRect(updatedRect);
+
+      // Update preview wells
+      updatePreviewWells(updatedRect);
+    },
+    [isSelecting, selectionStart, updatePreviewWells]
+  );
+
+  const handleTouchEnd = useCallback(
+    (e) => {
+      // Prevent default to avoid accidental clicks
+      if (e && e.cancelable) {
+        e.preventDefault();
+      }
+
+      if (!isSelecting || !selectionStart) {
+        setIsSelecting(false);
+        return;
+      }
+
+      // Calculate wells inside the touch selection rectangle
+      if (selectionRect && Object.keys(wellPositions).length > 0) {
+        const selectedRegion = getWellsInRectangle(
+          selectionRect,
+          wellPositions
+        );
+
+        // Trigger selection update with the wells in the region
+        if (selectedRegion.length > 0) {
+          setSelectedWells(selectedRegion);
+        }
+      }
+
+      // Reset selection and preview state
+      setIsSelecting(false);
+      setSelectionStart(null);
+      setSelectionRect(null);
+      setPreviewWells([]);
+    },
+    [isSelecting, selectionRect, wellPositions, selectionStart]
+  );
+
+  // Clean up preview timer on unmount
+  useEffect(() => {
+    return () => {
+      if (previewDebounceRef.current) {
+        clearTimeout(previewDebounceRef.current);
+      }
+    };
+  }, []);
 
   // Helper function to toggle multiple well selections
   const toggleWellSelection = (wellIds, currentSelection) => {
@@ -422,12 +655,22 @@ const PlateMapGenerator = ({
         contextMenuPosition={contextMenuPosition}
         contextMenuType={contextMenuType}
         onCloseContextMenu={closeContextMenu}
-        onClearContext={handleClearContext} // Add missing handler for context menu clear
+        onClearContext={handleClearContext}
         renderColorElement={renderColorElement}
       />
 
-      {/* Two-column layout for plate map and legend */}
-      <div className="flex flex-col md:flex-row gap-4">
+      {/* Two-column layout for plate map and legend with selection rectangle container */}
+      <div
+        ref={selectionContainerRef}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ position: "relative" }}
+        className="flex flex-col md:flex-row gap-4"
+      >
         {/* Plate Map - Using the wrapper component */}
         <div className="md:flex-1">
           <PlateMapWrapper
@@ -440,7 +683,8 @@ const PlateMapGenerator = ({
             setContextMenuPosition={setContextMenuPosition}
             setContextMenuType={setContextMenuType}
             setShowContextMenu={setShowContextMenu}
-            legend={legend} // Pass legend to the wrapper
+            legend={legend}
+            previewWells={previewWells}
           />
         </div>
 
@@ -452,6 +696,21 @@ const PlateMapGenerator = ({
             onLegendChange={handleLegendChange}
           />
         </div>
+
+        {/* Selection rectangle overlay */}
+        {isSelecting && selectionRect && (
+          <div
+            className="absolute pointer-events-none border-2 border-dashed border-blue-500 bg-blue-500/10"
+            style={{
+              left: Math.min(selectionRect.startX, selectionRect.endX) + "px",
+              top: Math.min(selectionRect.startY, selectionRect.endY) + "px",
+              width: Math.abs(selectionRect.endX - selectionRect.startX) + "px",
+              height:
+                Math.abs(selectionRect.endY - selectionRect.startY) + "px",
+              zIndex: 50,
+            }}
+          />
+        )}
       </div>
 
       {/* Selected Wells Display */}
