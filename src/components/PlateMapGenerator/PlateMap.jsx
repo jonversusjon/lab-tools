@@ -495,11 +495,9 @@ const PlateMap = ({
                   document.documentElement.classList.contains("dark") ||
                   window.matchMedia("(prefers-color-scheme: dark)").matches;
                 textColor = isDarkMode ? "#ffffff" : "#000000";
-              } else if (
-                label.type === "fillColor" &&
-                label.color !== "transparent"
-              ) {
-                // For non-transparent fill color, check if background is dark and set text to white
+              } else {
+                // For any non-transparent background, use contrast to determine text color
+                // This ensures all label types get proper contrast regardless of label type
                 textColor = tinycolor(wellStyles.backgroundColor).isDark()
                   ? "#ffffff"
                   : "#000000";
