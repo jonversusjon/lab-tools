@@ -167,7 +167,7 @@ const SortableItem = ({
 const PlateMapLegend = ({
   wellData = {},
   onLegendChange,
-  legend = { colors: {} },
+  legend = { colors: {}, colorOrder: {} },
 }) => {
   // Track colors used in the plate
   const [usedColors, setUsedColors] = useState({
@@ -184,11 +184,13 @@ const PlateMapLegend = ({
   });
 
   // Track order of colors for each type
-  const [colorOrder, setColorOrder] = useState({
-    fillColor: [],
-    borderColor: [],
-    backgroundColor: [],
-  });
+  const [colorOrder, setColorOrder] = useState(
+    legend.colorOrder || {
+      fillColor: [],
+      borderColor: [],
+      backgroundColor: [],
+    }
+  );
 
   // Set up drag sensors
   const sensors = useSensors(
@@ -265,8 +267,11 @@ const PlateMapLegend = ({
     // Initialize or update color order
     const newColorOrder = {};
     Object.entries(extractedColors).forEach(([colorType, colors]) => {
-      // Keep existing order if possible, add new colors at the end
-      const existingOrder = colorOrder[colorType] || [];
+      // Use the legend.colorOrder if available, otherwise use the local state
+      const existingOrder =
+        (legend.colorOrder && legend.colorOrder[colorType]) ||
+        colorOrder[colorType] ||
+        [];
       const currentColors = Object.keys(colors);
 
       // Filter out colors that no longer exist
@@ -283,7 +288,7 @@ const PlateMapLegend = ({
     });
 
     setColorOrder(newColorOrder);
-  }, [wellData, legend.colors, colorTypeLabels, colorOrder]);
+  }, [wellData, legend.colors, legend.colorOrder, colorTypeLabels]); // Remove colorOrder from dependencies
 
   // Update legend when a label or checkbox changes
   const handleLegendItemChange = useCallback(
@@ -333,10 +338,14 @@ const PlateMapLegend = ({
       return;
     }
 
-    // Find which color type this belongs to
+    // Extract the color and colorType from the ID (if it's a compound ID)
+    let activeColor = active.id;
+    let overColor = over.id;
     let targetColorType = null;
+
+    // Find which color type this belongs to
     for (const [colorType, colors] of Object.entries(colorOrder)) {
-      if (colors.includes(active.id)) {
+      if (colors.includes(activeColor)) {
         targetColorType = colorType;
         break;
       }
@@ -344,17 +353,29 @@ const PlateMapLegend = ({
 
     if (!targetColorType) return;
 
-    const oldIndex = colorOrder[targetColorType].indexOf(active.id);
-    const newIndex = colorOrder[targetColorType].indexOf(over.id);
+    const oldIndex = colorOrder[targetColorType].indexOf(activeColor);
+    const newIndex = colorOrder[targetColorType].indexOf(overColor);
 
-    setColorOrder({
+    const newColorOrder = {
       ...colorOrder,
       [targetColorType]: arrayMove(
         colorOrder[targetColorType],
         oldIndex,
         newIndex
       ),
-    });
+    };
+
+    // Update local state
+    setColorOrder(newColorOrder);
+
+    // Notify parent component about the order change
+    if (onLegendChange) {
+      const newLegend = {
+        ...legend,
+        colorOrder: newColorOrder,
+      };
+      onLegendChange(newLegend);
+    }
   };
 
   // Count how many colors are defined across all types
@@ -387,6 +408,9 @@ const PlateMapLegend = ({
         {Object.entries(usedColors).map(([colorType, colors]) => {
           if (Object.keys(colors).length === 0) return null;
 
+          // Use the colorOrder if it exists for this colorType, otherwise use Object.keys
+          const orderedColors = colorOrder[colorType] || Object.keys(colors);
+
           return (
             <div key={colorType} className="mb-4">
               <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
@@ -394,11 +418,11 @@ const PlateMapLegend = ({
               </div>
 
               <SortableContext
-                items={colorOrder[colorType]}
+                items={orderedColors}
                 strategy={verticalListSortingStrategy}
               >
                 <div className="space-y-2">
-                  {colorOrder[colorType].map((color) => {
+                  {orderedColors.map((color) => {
                     const data = colors[color];
                     if (!data) return null;
 
@@ -420,6 +444,11 @@ const PlateMapLegend = ({
           );
         })}
       </DndContext>
+
+      {/* Debug information to help troubleshoot */}
+      <div className="text-xs text-gray-400 mt-4 border-t pt-2">
+        <p>Drag items to reorder. Changes will be saved automatically.</p>
+      </div>
     </div>
   );
 };
