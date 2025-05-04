@@ -455,7 +455,9 @@ const PlateMap = ({
         } ${
           wellStyles.borderColor === "transparent"
             ? ""
-            : "border-1 lg:border-2"
+            : wellData[wellId]?.borderColor
+            ? "border-2" // Custom border color gets thick border
+            : "border-1" // Default border color stays thin
         } ${
           isPreview
             ? "transition-all duration-200 animate-pulse-subtle hover:translate-y-[-1px]"
