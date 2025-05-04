@@ -455,7 +455,7 @@ const PlateMap = ({
         } ${
           wellStyles.borderColor === "transparent"
             ? ""
-            : "border-2 md:border-3 lg:border-4"
+            : "border-1 lg:border-2"
         } ${
           isPreview
             ? "transition-all duration-200 animate-pulse-subtle hover:translate-y-[-1px]"

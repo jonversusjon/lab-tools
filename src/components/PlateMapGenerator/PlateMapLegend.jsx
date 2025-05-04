@@ -264,31 +264,19 @@ const PlateMapLegend = ({
     setUsedColors(extractedColors);
     setWellsByColor(newWellsByColor);
 
-    // Initialize or update color order
-    const newColorOrder = {};
-    Object.entries(extractedColors).forEach(([colorType, colors]) => {
-      // Use the legend.colorOrder if available, otherwise use the local state
-      const existingOrder =
-        (legend.colorOrder && legend.colorOrder[colorType]) ||
-        colorOrder[colorType] ||
-        [];
-      const currentColors = Object.keys(colors);
-
-      // Filter out colors that no longer exist
-      const filteredOrder = existingOrder.filter((color) =>
-        currentColors.includes(color)
-      );
-
-      // Add new colors that aren't in the order yet
-      const newColors = currentColors.filter(
-        (color) => !filteredOrder.includes(color)
-      );
-
-      newColorOrder[colorType] = [...filteredOrder, ...newColors];
+    // Initialize or update color order - UPDATED to functional form
+    setColorOrder((prevOrder) => {
+      const newOrder = {};
+      Object.entries(extractedColors).forEach(([type, colors]) => {
+        const existing = legend.colorOrder?.[type] ?? prevOrder[type] ?? [];
+        const keys = Object.keys(colors);
+        const kept = existing.filter((c) => keys.includes(c));
+        const added = keys.filter((c) => !kept.includes(c));
+        newOrder[type] = [...kept, ...added];
+      });
+      return newOrder;
     });
-
-    setColorOrder(newColorOrder);
-  }, [wellData, legend.colors, legend.colorOrder, colorTypeLabels, colorOrder]); // Remove colorOrder from dependencies
+  }, [wellData, legend.colors, legend.colorOrder, colorTypeLabels]); // Removed colorOrder dependency
 
   // Update legend when a label or checkbox changes
   const handleLegendItemChange = useCallback(
