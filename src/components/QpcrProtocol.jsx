@@ -315,8 +315,8 @@ function QpcrProtocol() {
         </div>
 
         {showPlateMapSection && (
-          <div className="mt-4">
-            <p className="mb-4 text-gray-700 dark:text-gray-300">
+          <div className="">
+            <p className="mb-4 text-gray-700 dark:text-gray-300 text-sm italic select-none">
               Design your plate layout below. You can add multiple plates,
               select different plate types, and customize well colors.
             </p>

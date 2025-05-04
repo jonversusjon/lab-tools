@@ -400,3 +400,98 @@ export const getWellsInRectangle = (rect, wellPositions) => {
     })
     .map(([wellId]) => wellId);
 };
+
+/**
+ * Check if a mouse event occurred within a legend element
+ * @param {MouseEvent} event - Mouse event to check
+ * @returns {boolean} True if event occurred in a legend element
+ */
+export const isEventInLegendArea = (event) => {
+  if (!event || !event.target) return false;
+
+  // Check if the event target or any of its parents have a legend-related class or data attribute
+  let element = event.target;
+  const maxDepth = 5; // Prevent infinite loops by limiting traversal depth
+  let depth = 0;
+
+  while (element && depth < maxDepth) {
+    // Check for legend-related classes or attributes
+    if (
+      element.classList?.contains("legend") ||
+      element.classList?.contains("legend-item") ||
+      element.dataset?.legend === "true" ||
+      element.getAttribute?.("data-legend") === "true" ||
+      element.id?.includes("legend")
+    ) {
+      return true;
+    }
+    element = element.parentElement;
+    depth++;
+  }
+
+  return false;
+};
+
+/**
+ * Determine if a selection rectangle should be initiated based on the start event
+ * @param {MouseEvent} event - The mousedown event
+ * @returns {boolean} True if selection rectangle should be initiated
+ */
+export const shouldInitiateSelectionRectangle = (event) => {
+  // Don't initiate if in legend area
+  if (isEventInLegendArea(event)) {
+    return false;
+  }
+
+  // Don't initiate on right-click or with modifier keys (for other functionality)
+  if (event.button !== 0 || event.ctrlKey || event.metaKey) {
+    return false;
+  }
+
+  // Additional conditions can be added here
+
+  return true;
+};
+
+/**
+ * Get the coordinates for a selection rectangle, handling scroll and element offsets
+ * @param {MouseEvent} startEvent - The mousedown event that started the selection
+ * @param {MouseEvent} currentEvent - The current mousemove event
+ * @param {HTMLElement} containerElement - The container element for the selection
+ * @returns {Object} Rectangle coordinates { startX, startY, endX, endY, width, height }
+ */
+export const getSelectionRectangleCoordinates = (
+  startEvent,
+  currentEvent,
+  containerElement
+) => {
+  if (!startEvent || !currentEvent || !containerElement) {
+    return { startX: 0, startY: 0, endX: 0, endY: 0, width: 0, height: 0 };
+  }
+
+  // Get container bounds
+  const containerRect = containerElement.getBoundingClientRect();
+
+  // Calculate start position relative to container
+  const startX = startEvent.clientX - containerRect.left;
+  const startY = startEvent.clientY - containerRect.top;
+
+  // Calculate current position relative to container
+  const endX = currentEvent.clientX - containerRect.left;
+  const endY = currentEvent.clientY - containerRect.top;
+
+  // Calculate width and height
+  const width = Math.abs(endX - startX);
+  const height = Math.abs(endY - startY);
+
+  return {
+    startX,
+    startY,
+    endX,
+    endY,
+    width,
+    height,
+    left: Math.min(startX, endX),
+    top: Math.min(startY, endY),
+  };
+};

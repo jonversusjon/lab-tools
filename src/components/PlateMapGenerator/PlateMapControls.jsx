@@ -29,62 +29,315 @@ const COLOR_ELEMENTS = [
   { id: "backgroundColor", label: "Background", icon: "□" },
 ];
 
-// New structured color palette: 5 hues with 8 intensity levels each
+// New structured color palette: 9 hues with 11 intensity levels each
 const COLOR_PALETTE = [
-  // Blue hues
+  // Slate
   [
-    "#EBF8FF",
-    "#BEE3F8",
-    "#90CDF4",
-    "#63B3ED",
-    "#4299E1",
-    "#3182CE",
-    "#2B6CB0",
-    "#2C5282",
+    // "#f8fafc", // 50
+    "#f1f5f9", // 100
+    "#e2e8f0", // 200
+    "#cbd5e1", // 300
+    "#94a3b8", // 400
+    "#64748b", // 500
+    "#475569", // 600
+    "#334155", // 700
+    "#1e293b", // 800
+    "#0f172a", // 900
+    "#020617", // 950
   ],
-  // Red hues
+  // Gray
+  // [
+  //   "#f9fafb", // 50
+  //   "#f3f4f6", // 100
+  //   "#e5e7eb", // 200
+  //   "#d1d5db", // 300
+  //   "#9ca3af", // 400
+  //   "#6b7280", // 500
+  //   "#4b5563", // 600
+  //   "#374151", // 700
+  //   "#1f2937", // 800
+  //   "#111827", // 900
+  //   "#030712", // 950
+  // ],
+  // Zinc
+  // [
+  //   "#fafafa", // 50
+  //   "#f4f4f5", // 100
+  //   "#e4e4e7", // 200
+  //   "#d4d4d8", // 300
+  //   "#a1a1aa", // 400
+  //   "#71717a", // 500
+  //   "#52525b", // 600
+  //   "#3f3f46", // 700
+  //   "#27272a", // 800
+  //   "#18181b", // 900
+  //   "#09090b", // 950
+  // ],
+  // Neutral
+  // [
+  //   "#fafafa", // 50
+  //   "#f5f5f5", // 100
+  //   "#e5e5e5", // 200
+  //   "#d4d4d4", // 300
+  //   "#a3a3a3", // 400
+  //   "#737373", // 500
+  //   "#525252", // 600
+  //   "#404040", // 700
+  //   "#262626", // 800
+  //   "#171717", // 900
+  //   "#0a0a0a", // 950
+  // ],
+  // Stone
   [
-    "#FFF5F5",
-    "#FED7D7",
-    "#FEB2B2",
-    "#FC8181",
-    "#F56565",
-    "#E53E3E",
-    "#C53030",
-    "#9B2C2C",
+    // "#fafaf9", // 50
+    "#f5f5f4", // 100
+    "#e7e5e4", // 200
+    "#d6d3d1", // 300
+    "#a8a29e", // 400
+    "#78716c", // 500
+    "#57534e", // 600
+    "#44403c", // 700
+    "#292524", // 800
+    "#1c1917", // 900
+    "#0c0a09", // 950
   ],
-  // Green hues
+  // Red
   [
-    "#F0FFF4",
-    "#C6F6D5",
-    "#9AE6B4",
-    "#68D391",
-    "#48BB78",
-    "#38A169",
-    "#2F855A",
-    "#276749",
+    // "#fef2f2", // 50
+    "#fee2e2", // 100
+    "#fecaca", // 200
+    "#fca5a5", // 300
+    "#f87171", // 400
+    "#ef4444", // 500
+    "#dc2626", // 600
+    "#b91c1c", // 700
+    "#991b1b", // 800
+    "#7f1d1d", // 900
+    "#450a0a", // 950
   ],
-  // Amber hues
+  // Orange
   [
-    "#FFFAF0",
-    "#FEEBC8",
-    "#FBD38D",
-    "#F6AD55",
-    "#ED8936",
-    "#DD6B20",
-    "#C05621",
-    "#9C4221",
+    // "#fff7ed", // 50
+    "#ffedd5", // 100
+    "#fed7aa", // 200
+    "#fdba74", // 300
+    "#fb923c", // 400
+    "#f97316", // 500
+    "#ea580c", // 600
+    "#c2410c", // 700
+    "#9a3412", // 800
+    "#7c2d12", // 900
+    "#431407", // 950
   ],
-  // Purple hues
+  // Amber
   [
-    "#FAF5FF",
-    "#E9D8FD",
-    "#D6BCFA",
-    "#B794F4",
-    "#9F7AEA",
-    "#805AD5",
-    "#6B46C1",
-    "#553C9A",
+    // "#fffbeb", // 50
+    "#fef3c7", // 100
+    "#fde68a", // 200
+    "#fcd34d", // 300
+    "#fbbf24", // 400
+    "#f59e0b", // 500
+    "#d97706", // 600
+    "#b45309", // 700
+    "#92400e", // 800
+    "#78350f", // 900
+    "#451a03", // 950
+  ],
+  // Yellow
+  [
+    // "#fefce8", // 50
+    "#fef9c3", // 100
+    "#fef08a", // 200
+    "#fde047", // 300
+    "#facc15", // 400
+    "#eab308", // 500
+    "#ca8a04", // 600
+    "#a16207", // 700
+    "#854d0e", // 800
+    "#713f12", // 900
+    "#422006", // 950
+  ],
+  // Lime
+  [
+    // "#f7fee7", // 50
+    "#ecfccb", // 100
+    "#d9f99d", // 200
+    "#bef264", // 300
+    "#a3e635", // 400
+    "#84cc16", // 500
+    "#65a30d", // 600
+    "#4d7c0f", // 700
+    "#3f6212", // 800
+    "#365314", // 900
+    "#1a2e05", // 950
+  ],
+  // Green
+  [
+    // "#f0fdf4", // 50
+    "#dcfce7", // 100
+    "#bbf7d0", // 200
+    "#86efac", // 300
+    "#4ade80", // 400
+    "#22c55e", // 500
+    "#16a34a", // 600
+    "#15803d", // 700
+    "#166534", // 800
+    "#14532d", // 900
+    "#052e16", // 950
+  ],
+  // Emerald
+  [
+    // "#ecfdf5", // 50
+    "#d1fae5", // 100
+    "#a7f3d0", // 200
+    "#6ee7b7", // 300
+    "#34d399", // 400
+    "#10b981", // 500
+    "#059669", // 600
+    "#047857", // 700
+    "#065f46", // 800
+    "#064e3b", // 900
+    "#022c22", // 950
+  ],
+  // Teal
+  [
+    // "#f0fdfa", // 50
+    "#ccfbf1", // 100
+    "#99f6e4", // 200
+    "#5eead4", // 300
+    "#2dd4bf", // 400
+    "#14b8a6", // 500
+    "#0d9488", // 600
+    "#0f766e", // 700
+    "#115e59", // 800
+    "#134e4a", // 900
+    "#042f2e", // 950
+  ],
+  // Cyan
+  [
+    // "#ecfeff", // 50
+    "#cffafe", // 100
+    "#a5f3fc", // 200
+    "#67e8f9", // 300
+    "#22d3ee", // 400
+    "#06b6d4", // 500
+    "#0891b2", // 600
+    "#0e7490", // 700
+    "#155e75", // 800
+    "#164e63", // 900
+    "#083344", // 950
+  ],
+  // Sky
+  [
+    // "#f0f9ff", // 50
+    "#e0f2fe", // 100
+    "#bae6fd", // 200
+    "#7dd3fc", // 300
+    "#38bdf8", // 400
+    "#0ea5e9", // 500
+    "#0284c7", // 600
+    "#0369a1", // 700
+    "#075985", // 800
+    "#0c4a6e", // 900
+    "#082f49", // 950
+  ],
+  // Blue
+  [
+    // "#eff6ff", // 50
+    "#dbeafe", // 100
+    "#bfdbfe", // 200
+    "#93c5fd", // 300
+    "#60a5fa", // 400
+    "#3b82f6", // 500
+    "#2563eb", // 600
+    "#1d4ed8", // 700
+    "#1e40af", // 800
+    "#1e3a8a", // 900
+    "#172554", // 950
+  ],
+  // Indigo
+  [
+    // "#eef2ff", // 50
+    "#e0e7ff", // 100
+    "#c7d2fe", // 200
+    "#a5b4fc", // 300
+    "#818cf8", // 400
+    "#6366f1", // 500
+    "#4f46e5", // 600
+    "#4338ca", // 700
+    "#3730a3", // 800
+    "#312e81", // 900
+    "#1e1b4b", // 950
+  ],
+  // Violet
+  [
+    // "#f5f3ff", // 50
+    "#ede9fe", // 100
+    "#ddd6fe", // 200
+    "#c4b5fd", // 300
+    "#a78bfa", // 400
+    "#8b5cf6", // 500
+    "#7c3aed", // 600
+    "#6d28d9", // 700
+    "#5b21b6", // 800
+    "#4c1d95", // 900
+    "#2e1065", // 950
+  ],
+  // Purple
+  [
+    // "#faf5ff", // 50
+    "#f3e8ff", // 100
+    "#e9d5ff", // 200
+    "#d8b4fe", // 300
+    "#c084fc", // 400
+    "#a855f7", // 500
+    "#9333ea", // 600
+    "#7e22ce", // 700
+    "#6b21a8", // 800
+    "#581c87", // 900
+    "#3b0764", // 950
+  ],
+  // Fuchsia
+  [
+    // "#fdf4ff", // 50
+    "#fae8ff", // 100
+    "#f5d0fe", // 200
+    "#f0abfc", // 300
+    "#e879f9", // 400
+    "#d946ef", // 500
+    "#c026d3", // 600
+    "#a21caf", // 700
+    "#86198f", // 800
+    "#701a75", // 900
+    "#4a044e", // 950
+  ],
+  // Pink
+  [
+    // "#fdf2f8", // 50
+    "#fce7f3", // 100
+    "#fbcfe8", // 200
+    "#f9a8d4", // 300
+    "#f472b6", // 400
+    "#ec4899", // 500
+    "#db2777", // 600
+    "#be185d", // 700
+    "#9d174d", // 800
+    "#831843", // 900
+    "#500724", // 950
+  ],
+  // Rose
+  [
+    // "#fff1f2", // 50
+    "#ffe4e6", // 100
+    "#fecdd3", // 200
+    "#fda4af", // 300
+    "#fb7185", // 400
+    "#f43f5e", // 500
+    "#e11d48", // 600
+    "#be123c", // 700
+    "#9f1239", // 800
+    "#881337", // 900
+    "#4c0519", // 950
   ],
 ];
 
@@ -575,8 +828,16 @@ const PlateMapControls = ({
                       </button>
                     </div>
 
+                    {/* Color Palette - hues from right to left, shades from top to bottom */}
                     <div className="flex justify-start gap-0">
-                      {COLOR_PALETTE.map((hueSet, hueIndex) => (
+                      {/* In collapsed view, show only 10 hues */}
+                      {(isColorPaletteExpanded
+                        ? COLOR_PALETTE
+                        : COLOR_PALETTE.filter(
+                            (_, idx) =>
+                              [0, 2, 5, 7, 12, 15].includes(idx) // 10 selected hues
+                          )
+                      ).map((hueSet, hueIndex) => (
                         <div
                           key={`hue-${hueIndex}`}
                           className="flex flex-col gap-0"
@@ -586,18 +847,18 @@ const PlateMapControls = ({
                                 <button
                                   key={`color-${hueIndex}-${intensityIndex}`}
                                   onClick={() => handleApplyColor(colorHex)}
-                                  className="w-[12%] aspect-square min-w-5 max-w-8 rounded-none border-0 hover:z-10 hover:shadow-md transition-shadow cursor-pointer"
+                                  className="w-4 h-4 rounded-none border-0 hover:z-10 hover:shadow-md transition-shadow cursor-pointer"
                                   style={{ backgroundColor: colorHex }}
                                   title={colorHex}
                                 />
                               ))
-                            : [1, 3, 5, 7].map((intensityIndex) => (
+                            : [0, 2, 4, 6, 8, 10].map((intensityIndex) => (
                                 <button
                                   key={`color-${hueIndex}-${intensityIndex}`}
                                   onClick={() =>
                                     handleApplyColor(hueSet[intensityIndex])
                                   }
-                                  className="w-[12%] aspect-square min-w-5 max-w-8 rounded-none border-0 hover:z-10 hover:shadow-md transition-shadow cursor-pointer"
+                                  className="w-6 h-6 rounded-none border-0 hover:z-10 hover:shadow-md transition-shadow cursor-pointer"
                                   style={{
                                     backgroundColor: hueSet[intensityIndex],
                                   }}

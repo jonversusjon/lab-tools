@@ -387,7 +387,7 @@ const PlateMapLegend = ({
   // If no colors are used, don't render anything
   if (colorCount === 0) {
     return (
-      <div className="text-sm text-gray-500 dark:text-gray-400 italic p-2">
+      <div className="text-sm text-gray-500 dark:text-gray-400 italic p-2 select-none">
         No colors used yet. Add colors to wells to create legend items.
       </div>
     );
