@@ -81,14 +81,11 @@ const PlateMap = ({
   // Enhanced well click handler with shift/ctrl support
   const handleWellClick = useCallback(
     (row, col, e) => {
-      console.log("PlateMap handleWellClick called:", { row, col, e });
       if (!e) {
-        console.warn("Event object missing in handleWellClick");
         e = { shiftKey: false, ctrlKey: false, metaKey: false };
       }
 
       const wellId = getWellId(row, col, rowLabels, colLabels);
-      console.log("Generated wellId:", wellId);
 
       // Handle shift-click for range selection
       if (e.shiftKey && lastClickedElement) {
@@ -226,11 +223,8 @@ const PlateMap = ({
       }
       // Normal click - toggle just this row
       else {
-        console.log("PlateMap handleRowClick normal click:", { row, rowLabel });
         setLastClickedElement({ type: "row", row });
         if (onRowClick) {
-          // Pass rowLabel to make toggling easier in the parent component
-          console.log("Calling onRowClick prop with:", row, rowLabel);
           onRowClick(row, rowLabel);
         }
       }
@@ -268,10 +262,8 @@ const PlateMap = ({
       }
       // Normal click - toggle just this column
       else {
-        console.log("PlateMap handleColumnClick normal click:", { col, colLabel: colLabels[col] });
         setLastClickedElement({ type: "column", col });
         if (onColumnClick) {
-          console.log("Calling onColumnClick prop with:", col, colLabels[col]);
           onColumnClick(col, colLabels[col]);
         }
       }
@@ -336,28 +328,30 @@ const PlateMap = ({
     collectLabels("borderColor", data.borderColor);
     collectLabels("backgroundColor", data.backgroundColor);
 
-    // Determine background color, accounting for selection state
+    // Determine background color - don't change for selection (selection uses outline instead)
     let backgroundColor = "var(--well-default-bg, #ffffff)";
 
     if (data.fillColor !== undefined) {
       backgroundColor = data.fillColor;
-    } else if (isSelected) {
-      backgroundColor = "rgba(59, 130, 246, 0.5)"; // Light blue background for selected wells
     }
+    // Selection no longer changes background - uses outline instead
 
     return {
       backgroundColor: backgroundColor,
       borderColor:
         data.borderColor !== undefined
           ? data.borderColor
-          : (isSelected ? "rgba(59, 130, 246, 1)" : "rgba(209, 213, 219, 1)"),
-      // Enhanced shadow/glow using CSS variables for theme awareness
-      boxShadow: isSelected
-        ? "0 0 0 2px rgba(59, 130, 246, 0.4)"
-        : isPreview
-          ? // Use CSS variables for the glow effect colors
+          : "rgba(209, 213, 219, 1)", // Default gray border, selection uses outline instead
+      // Selection uses outline, preview uses glow
+      boxShadow: isPreview
+        ? // Use CSS variables for the glow effect colors
           "0 0 0 2px var(--well-outline-color), 0 0 8px 2px var(--well-glow-color), 0 1px 3px rgba(0, 0, 0, 0.12)"
-          : "none",
+        : "none",
+      // Selection indicator - dashed outline that doesn't change the well fill
+      selectionOutline: isSelected
+        ? "2px dashed var(--selection-color)"
+        : "none",
+      isSelected: isSelected,
       // Add background div style if needed
       backgroundSquare:
         data.backgroundColor !== undefined
@@ -378,12 +372,14 @@ const PlateMap = ({
         --well-glow-color: rgba(59, 130, 246, 0.6); /* Blue glow for light mode */
         --well-glow-color-intense: rgba(59, 130, 246, 0.7);
         --well-outline-color: rgba(59, 130, 246, 0.3);
+        --selection-color: #2563eb; /* Solid blue for selection outline */
       }
       .dark {
         --well-default-bg: #374151;
         --well-glow-color: rgba(250, 204, 21, 0.6); /* Yellow glow for dark mode - better contrast */
         --well-glow-color-intense: rgba(250, 204, 21, 0.7);
         --well-outline-color: rgba(250, 204, 21, 0.3);
+        --selection-color: #60a5fa; /* Lighter blue for dark mode selection */
       }
       
       /* Custom animation for subtle pulsing with theme awareness */
@@ -454,25 +450,30 @@ const PlateMap = ({
     return (
       <div
         data-well-id={wellId}
-        className={`rounded-full cursor-pointer z-10 relative w-[calc(100%-6px)] h-[calc(100%-6px)] m-0.5 ${isWellSelected(row, col) ? "border-blue-500 dark:border-blue-400" : ""
+        className={`rounded-full z-10 relative w-[calc(100%-6px)] h-[calc(100%-6px)] m-0.5 ${readOnly ? "" : "cursor-pointer"
           } ${wellData[wellId]?.borderColor !== undefined
             ? "border-2" // Custom border color gets thick border
-            : "border-1" // Default border color stays thin
-          } ${isPreview
+            : "border" // Default border color stays thin
+          } ${!readOnly && isPreview
             ? "transition-all duration-200 animate-pulse-subtle hover:translate-y-[-1px]"
             : ""
           }`}
         style={{
           backgroundColor: wellStyles.backgroundColor,
           borderColor: wellStyles.borderColor,
-          boxShadow: wellStyles.boxShadow,
-          transform: isPreview ? "translateY(-1px)" : "none",
-          // Use CSS variable for outline color
-          outline: isPreview ? "2px solid var(--well-outline-color)" : "none",
-          outlineOffset: "1px",
+          boxShadow: readOnly ? "none" : wellStyles.boxShadow,
+          transform: !readOnly && isPreview ? "translateY(-1px)" : "none",
+          // Selection uses dashed outline, preview uses solid outline
+          outline: !readOnly
+            ? (wellStyles.isSelected
+              ? wellStyles.selectionOutline
+              : (isPreview ? "2px solid var(--well-outline-color)" : "none"))
+            : "none",
+          outlineOffset: wellStyles.isSelected ? "2px" : "1px",
         }}
-        onClick={(e) => handleWellClick(row, col, e)}
+        onClick={(e) => !readOnly && handleWellClick(row, col, e)}
         onContextMenu={(e) => {
+          if (readOnly) return;
           e.preventDefault();
           onContextMenu?.(e, "well");
         }}

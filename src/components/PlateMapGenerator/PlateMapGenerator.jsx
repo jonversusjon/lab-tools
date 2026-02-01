@@ -5,6 +5,8 @@ import PlateMapControls from "./PlateMapControls";
 import PlateMapLegend from "./PlateMapLegend";
 import { getWellsInRectangle } from "../../utils";
 import { useUndo, useCanUndo } from "../../contexts/UndoContext";
+import html2canvas from "html2canvas";
+import { Copy, Download, LayoutTemplate, PenTool } from "lucide-react"; // Import new icons
 
 // Separate wrapper component to isolate PlateMap rendering
 const PlateMapWrapper = ({
@@ -22,12 +24,9 @@ const PlateMapWrapper = ({
 }) => {
   // Define all handlers directly in this component
   const handleWellClick = (wellId) => {
-    console.log("PlateMapWrapper handleWellClick called with:", wellId);
-    console.log("Current selectedWells:", selectedWells);
     // Toggle the well's selection status
     setSelectedWells((prev) => {
       const isSelected = prev.includes(wellId);
-      console.log("Is well selected?", isSelected, "wellId:", wellId, "prev:", prev);
       return isSelected
         ? prev.filter((id) => id !== wellId)
         : [...prev, wellId];
@@ -35,17 +34,14 @@ const PlateMapWrapper = ({
   };
 
   const handleRowClick = (rowIndex, rowLabel) => {
-    console.log("PlateMapWrapper handleRowClick called:", { rowIndex, rowLabel });
     const { cols } = PLATE_TYPES[plateType];
     const rowWells = Array.from(
       { length: cols },
       (_, colIndex) => `${rowLabel}${colIndex + 1}`
     );
-    console.log("Row wells:", rowWells);
 
     // Rule: if all selected OR all unselected, toggle all; else turn all on
     setSelectedWells((prev) => {
-      console.log("Row toggle - prev:", prev);
       const allSelected = rowWells.every((id) => prev.includes(id));
       const allUnselected = rowWells.every((id) => !prev.includes(id));
 
@@ -69,17 +65,14 @@ const PlateMapWrapper = ({
   };
 
   const handleColumnClick = (colIndex, colLabel) => {
-    console.log("PlateMapWrapper handleColumnClick called:", { colIndex, colLabel });
     const { rows } = PLATE_TYPES[plateType];
     const colWells = Array.from(
       { length: rows },
       (_, rowIndex) => `${String.fromCharCode(65 + rowIndex)}${colLabel}`
     );
-    console.log("Column wells:", colWells);
 
     // Rule: if all selected OR all unselected, toggle all; else turn all on
     setSelectedWells((prev) => {
-      console.log("Column toggle - prev:", prev);
       const allSelected = colWells.every((id) => prev.includes(id));
       const allUnselected = colWells.every((id) => !prev.includes(id));
 
@@ -197,17 +190,16 @@ const PlateMapGenerator = ({
         <button
           key={element}
           onClick={() => handleColorElementChange(element)}
-          className={`px-3 py-1 text-xs rounded-md ${
-            activeColorElement === element
-              ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300"
-          }`}
+          className={`px-3 py-1 text-xs rounded-md ${activeColorElement === element
+            ? "bg-blue-500 text-white"
+            : "bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300"
+            }`}
         >
           {element === "fillColor"
             ? "Fill"
             : element === "borderColor"
-            ? "Border"
-            : "Background"}
+              ? "Border"
+              : "Background"}
         </button>
       ))}
     </div>
@@ -227,6 +219,10 @@ const PlateMapGenerator = ({
   });
   const [contextMenuType, setContextMenuType] = useState(null);
   const [showContextMenu, setShowContextMenu] = useState(false);
+
+  // Presentation Mode state
+  const [viewMode, setViewMode] = useState("edit");
+  const presentationRef = useRef(null);
 
   // Selection rectangle state (moved from PlateMap)
   const selectionContainerRef = useRef(null);
@@ -291,13 +287,11 @@ const PlateMapGenerator = ({
 
   // Mouse down handler for drag selection
   const handleMouseDown = useCallback((e) => {
-    console.log("handleMouseDown called, target:", e.target);
     // Only act on left mouse button
     if (e.button !== 0) return;
 
     // Don't start selection if well positions aren't ready
     if (Object.keys(wellPositions).length === 0) {
-      console.log("handleMouseDown: wellPositions empty, returning");
       return;
     }
 
@@ -308,11 +302,8 @@ const PlateMapGenerator = ({
     const isRowHeader = target.closest('[data-row-index]');
     const isColumnHeader = target.closest('[data-col-index]');
 
-    console.log("handleMouseDown check:", { isWell: !!isWell, isRowHeader: !!isRowHeader, isColumnHeader: !!isColumnHeader });
-
     if (isWell || isRowHeader || isColumnHeader) {
       // Don't start drag selection - let click handlers work
-      console.log("handleMouseDown: clicking on well/header, letting click handler work");
       return;
     }
 
@@ -556,7 +547,7 @@ const PlateMapGenerator = ({
         const previousWellData = JSON.parse(JSON.stringify(wellData));
         const affectedWells = [...selectedWells];
         const colorTypeName = elementType === "fillColor" ? "Fill" :
-                              elementType === "borderColor" ? "Border" : "Background";
+          elementType === "borderColor" ? "Border" : "Background";
 
         // Push undo action
         pushUndo(`Apply ${colorTypeName} Color`, () => {
@@ -604,13 +595,12 @@ const PlateMapGenerator = ({
       // Make sure colorOrder always exists
       colorOrder: newLegend.colorOrder ||
         prevLegend.colorOrder || {
-          fillColor: [],
-          borderColor: [],
-          backgroundColor: [],
-        },
+        fillColor: [],
+        borderColor: [],
+        backgroundColor: [],
+      },
     }));
 
-    console.log("Legend updated with new color order:", newLegend.colorOrder);
   }, []);
 
   // Add undo button next to the selected wells display
@@ -655,7 +645,6 @@ const PlateMapGenerator = ({
             backgroundColor: [],
           },
         });
-        console.log("Reset plate - cleared all colors, selections, and legend");
       } else {
         // Push undo action for clear selection
         pushUndo("Clear Selection", () => {
@@ -664,7 +653,6 @@ const PlateMapGenerator = ({
 
         // Just clear selection, keep colors and legend
         setSelectedWells([]);
-        console.log("Cleared selection only");
       }
     },
     [wellData, selectedWells, legend, pushUndo]
@@ -714,35 +702,181 @@ const PlateMapGenerator = ({
     closeContextMenu();
   }, [selectedWells, closeContextMenu]);
 
+  const handleCopyImage = async () => {
+    // Basic ref check
+    let element = presentationRef.current;
+    if (!element) {
+      console.warn("Presentation ref not found, trying ID fallback");
+      element = document.getElementById("presentation-view");
+    }
+    if (!element) {
+      console.error("No element found to capture");
+      return;
+    }
+
+    try {
+      console.log("Starting capture...");
+      const canvas = await html2canvas(element, {
+        backgroundColor: "#ffffff",
+        scale: 3, // Higher quality
+        logging: true, // Enable logging to see what's happening
+        useCORS: true,
+        allowTaint: true,
+      });
+
+      console.log("Canvas created, converting to blob...");
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const item = new ClipboardItem({ "image/png": blob });
+          navigator.clipboard.write([item]).then(() => {
+            console.log("Copied to clipboard");
+            const btn = document.getElementById("copy-btn-text");
+            if (btn) {
+              const original = btn.innerText;
+              btn.innerText = "Copied!";
+              setTimeout(() => btn.innerText = original, 2000);
+            }
+          }).catch(err => console.error("Clipboard write failed:", err));
+        } else {
+          console.error("Blob generation failed");
+        }
+      });
+    } catch (err) {
+      console.error("Failed to copy image:", err);
+    }
+  };
+
+  const handleDownloadImage = async () => {
+    let element = presentationRef.current;
+    if (!element) {
+      element = document.getElementById("presentation-view");
+    }
+    if (!element) return;
+
+    try {
+      const canvas = await html2canvas(element, {
+        backgroundColor: "#ffffff",
+        scale: 3,
+        useCORS: true,
+        allowTaint: true,
+      });
+      const link = document.createElement("a");
+      link.download = `plate-map-${plateMetadata.name || "export"}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    } catch (err) {
+      console.error("Failed to download image:", err);
+    }
+  };
+
+  if (viewMode === "presentation") {
+    return (
+      <div className="plate-map-generator flex flex-col h-full bg-gray-50 dark:bg-gray-900 p-6 overflow-auto">
+        {/* Presentation Toolbar */}
+        <div className="flex justify-between items-center mb-8 max-w-5xl mx-auto w-full">
+          <button
+            onClick={() => setViewMode("edit")}
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <PenTool className="w-4 h-4" /> Edit Plate
+          </button>
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleCopyImage}
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Copy className="w-4 h-4" /> <span id="copy-btn-text">Copy PNG</span>
+            </button>
+            <button
+              onClick={handleDownloadImage}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Download className="w-4 h-4" /> Download PNG
+            </button>
+          </div>
+        </div>
+
+        {/* Capture Area */}
+        <div className="flex-1 flex justify-center pb-8">
+          <div
+            ref={presentationRef}
+            id="presentation-view"
+            className="bg-white p-12 rounded-xl shadow-sm border border-gray-200 max-w-4xl w-full"
+          >
+            <div className="mb-8 text-center">
+              <h1 className="text-3xl font-bold text-slate-900 mb-2">
+                {plateMetadata.name || "Untitled Plate"}
+              </h1>
+              {plateMetadata.description && (
+                <p className="text-slate-500 text-lg">
+                  {plateMetadata.description}
+                </p>
+              )}
+            </div>
+
+            <div className="mb-8">
+              <PlateMap
+                plateType={plateType}
+                wellData={wellData}
+                selectedWells={[]} // Hide selection
+                readOnly={true}
+                legend={legend}
+              />
+            </div>
+
+            <PlateMapLegend
+              wellData={wellData}
+              legend={legend}
+              colorOrder={legend.colorOrder}
+              readOnly={true}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="plate-map-generator border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 shadow-sm">
-      {/* Plate Information */}
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Plate name"
-          value={plateMetadata.name}
-          onChange={(e) =>
-            setPlateMetadata({ ...plateMetadata, name: e.target.value })
-          }
-          className="w-full px-3 py-2 text-base font-medium text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400"
-        />
+      {/* Header & Controls */}
+      <div className="flex justify-between items-start mb-4">
+        <div className="flex-1 mr-4">
+          <input
+            type="text"
+            placeholder="Plate name"
+            value={plateMetadata.name}
+            onChange={(e) =>
+              setPlateMetadata({ ...plateMetadata, name: e.target.value })
+            }
+            className="w-full px-3 py-2 text-base font-medium text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400"
+          />
 
-        {/* Add description input to use the description field */}
-        <textarea
-          placeholder="Plate description"
-          value={plateMetadata.description}
-          onChange={(e) =>
-            setPlateMetadata({ ...plateMetadata, description: e.target.value })
-          }
-          className="w-full mt-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:border-blue-500 dark:focus:border-blue-400"
-          rows="2"
-        />
+          {/* Add description input to use the description field */}
+          <textarea
+            placeholder="Plate description"
+            value={plateMetadata.description}
+            onChange={(e) =>
+              setPlateMetadata({ ...plateMetadata, description: e.target.value })
+            }
+            className="w-full mt-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:border-blue-500 dark:focus:border-blue-400"
+            rows="2"
+          />
 
-        {/* Display created date */}
-        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          Created: {new Date(plateMetadata.created).toLocaleString()}
+          {/* Display created date */}
+          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Created: {new Date(plateMetadata.created).toLocaleString()}
+          </div>
         </div>
+
+        <button
+          onClick={() => setViewMode("presentation")}
+          className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
+          title="Switch to Presentation Mode (Export PNG)"
+        >
+          <LayoutTemplate className="w-4 h-4" />
+          <span className="hidden sm:inline">Done Editing</span>
+        </button>
       </div>
 
       {/* Controls */}
@@ -827,9 +961,8 @@ const PlateMapGenerator = ({
             <span>
               Selected:{" "}
               {selectedWells.length > 10
-                ? `${selectedWells.slice(0, 10).join(", ")}... (${
-                    selectedWells.length
-                  } total)`
+                ? `${selectedWells.slice(0, 10).join(", ")}... (${selectedWells.length
+                } total)`
                 : selectedWells.join(", ")}
             </span>
             <div className="flex space-x-1">
