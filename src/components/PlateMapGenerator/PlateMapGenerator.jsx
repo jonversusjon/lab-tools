@@ -152,6 +152,7 @@ const PlateMapGenerator = ({
     backgroundColor: "#f3f4f6", // Default light gray for background
   });
   const [activeColorElement, setActiveColorElement] = useState("fillColor");
+  const [copyButtonText, setCopyButtonText] = useState("Copy PNG");
 
   // Add legend state
   const [legend, setLegend] = useState(
@@ -715,34 +716,41 @@ const PlateMapGenerator = ({
     }
 
     try {
-      console.log("Starting capture...");
+      setCopyButtonText("Generating...");
       const canvas = await html2canvas(element, {
-        backgroundColor: "#ffffff",
+        backgroundColor: null, // Transparent/Use element background
         scale: 3, // Higher quality
-        logging: true, // Enable logging to see what's happening
+        logging: false,
         useCORS: true,
-        allowTaint: true,
       });
 
-      console.log("Canvas created, converting to blob...");
       canvas.toBlob((blob) => {
         if (blob) {
+          if (!navigator.clipboard) {
+             console.error("Clipboard API not available");
+             setCopyButtonText("Not supported!");
+             setTimeout(() => setCopyButtonText("Copy PNG"), 2000);
+             return;
+          }
           const item = new ClipboardItem({ "image/png": blob });
           navigator.clipboard.write([item]).then(() => {
-            console.log("Copied to clipboard");
-            const btn = document.getElementById("copy-btn-text");
-            if (btn) {
-              const original = btn.innerText;
-              btn.innerText = "Copied!";
-              setTimeout(() => btn.innerText = original, 2000);
-            }
-          }).catch(err => console.error("Clipboard write failed:", err));
+            setCopyButtonText("Copied!");
+            setTimeout(() => setCopyButtonText("Copy PNG"), 2000);
+          }).catch(err => {
+            console.error("Clipboard write failed:", err);
+            setCopyButtonText("Failed!");
+            setTimeout(() => setCopyButtonText("Copy PNG"), 2000);
+          });
         } else {
           console.error("Blob generation failed");
+          setCopyButtonText("Failed!");
+          setTimeout(() => setCopyButtonText("Copy PNG"), 2000);
         }
       });
     } catch (err) {
       console.error("Failed to copy image:", err);
+      setCopyButtonText("Failed!");
+      setTimeout(() => setCopyButtonText("Copy PNG"), 2000);
     }
   };
 
@@ -755,10 +763,9 @@ const PlateMapGenerator = ({
 
     try {
       const canvas = await html2canvas(element, {
-        backgroundColor: "#ffffff",
+        backgroundColor: null,
         scale: 3,
         useCORS: true,
-        allowTaint: true,
       });
       const link = document.createElement("a");
       link.download = `plate-map-${plateMetadata.name || "export"}.png`;
@@ -773,7 +780,7 @@ const PlateMapGenerator = ({
     return (
       <div className="plate-map-generator flex flex-col h-full bg-gray-50 dark:bg-gray-900 p-6 overflow-auto">
         {/* Presentation Toolbar */}
-        <div className="flex justify-between items-center mb-8 max-w-5xl mx-auto w-full">
+        <div className="flex justify-between items-center mb-8 max-w-6xl mx-auto w-full">
           <button
             onClick={() => setViewMode("edit")}
             className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -786,7 +793,7 @@ const PlateMapGenerator = ({
               onClick={handleCopyImage}
               className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              <Copy className="w-4 h-4" /> <span id="copy-btn-text">Copy PNG</span>
+              <Copy className="w-4 h-4" /> {copyButtonText}
             </button>
             <button
               onClick={handleDownloadImage}
@@ -798,39 +805,44 @@ const PlateMapGenerator = ({
         </div>
 
         {/* Capture Area */}
-        <div className="flex-1 flex justify-center pb-8">
+        <div className="flex-1 flex justify-center pb-8 overflow-auto">
           <div
             ref={presentationRef}
             id="presentation-view"
-            className="bg-white p-12 rounded-xl shadow-sm border border-gray-200 max-w-4xl w-full"
+            className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 w-fit min-w-[800px] max-w-full mx-auto"
           >
-            <div className="mb-8 text-center">
-              <h1 className="text-3xl font-bold text-slate-900 mb-2">
+            <div className="mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
                 {plateMetadata.name || "Untitled Plate"}
               </h1>
               {plateMetadata.description && (
-                <p className="text-slate-500 text-lg">
+                <p className="text-gray-500 dark:text-gray-400 text-base">
                   {plateMetadata.description}
                 </p>
               )}
             </div>
 
-            <div className="mb-8">
-              <PlateMap
-                plateType={plateType}
-                wellData={wellData}
-                selectedWells={[]} // Hide selection
-                readOnly={true}
-                legend={legend}
-              />
-            </div>
+            <div className="flex flex-col md:flex-row gap-8 items-start">
+              <div className="flex-1 min-w-[500px]">
+                <PlateMap
+                  plateType={plateType}
+                  wellData={wellData}
+                  selectedWells={[]} // Hide selection
+                  readOnly={true}
+                  legend={legend}
+                />
+              </div>
 
-            <PlateMapLegend
-              wellData={wellData}
-              legend={legend}
-              colorOrder={legend.colorOrder}
-              readOnly={true}
-            />
+              <div className="w-64 shrink-0 pt-2 border-l border-gray-100 dark:border-gray-700 pl-6">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 uppercase tracking-wider">Legend</h3>
+                <PlateMapLegend
+                  wellData={wellData}
+                  legend={legend}
+                  colorOrder={legend.colorOrder}
+                  readOnly={true}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
