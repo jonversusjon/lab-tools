@@ -5,7 +5,7 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
-import ErrorBoundary from "@/components/ErrorBoundary";
+import ErrorBoundary from "@/components/ErrorBoundary.jsx";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams } from "react-router-dom";
 import "./App.css";
@@ -18,6 +18,7 @@ import {
   applyDarkMode,
 } from "./utils";
 import Dashboard from "./pages/Dashboard";
+import { UndoProvider } from "./contexts/UndoContext";
 
 // Lazy load components for better performance
 const SerialCalculator = lazy(() =>
@@ -129,27 +130,29 @@ function App() {
   };
 
   return (
-    <BrowserRouter>
-      <RouteTracker />
-      <div className="min-h-screen transition-colors duration-300 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
-        <AppHeader darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-        <AppNavbar />
-        <Suspense fallback={<LoadingFallback />}>
-          <ErrorBoundary>
-            <Routes>
-              {/* Dashboard landing page with resume support */}
-              <Route path="/" element={<Dashboard />} />
-              {/* Handle all nav paths */}
-              <Route path="/:tab" element={<GenericPage />} />
-              <Route path="/:tab/:child" element={<GenericPage />} />
+    <UndoProvider>
+      <BrowserRouter>
+        <RouteTracker />
+        <div className="min-h-screen transition-colors duration-300 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+          <AppHeader darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+          <AppNavbar />
+          <Suspense fallback={<LoadingFallback />}>
+            <ErrorBoundary>
+              <Routes>
+                {/* Dashboard landing page with resume support */}
+                <Route path="/" element={<Dashboard />} />
+                {/* Handle all nav paths */}
+                <Route path="/:tab" element={<GenericPage />} />
+                <Route path="/:tab/:child" element={<GenericPage />} />
 
-              {/* Fallback route */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </ErrorBoundary>
-        </Suspense>
-      </div>
-    </BrowserRouter>
+                {/* Fallback route */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </ErrorBoundary>
+          </Suspense>
+        </div>
+      </BrowserRouter>
+    </UndoProvider>
   );
 }
 

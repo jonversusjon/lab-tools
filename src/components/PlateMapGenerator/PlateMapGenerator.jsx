@@ -4,6 +4,7 @@ import { PLATE_TYPES } from "./PlateTypes";
 import PlateMapControls from "./PlateMapControls";
 import PlateMapLegend from "./PlateMapLegend";
 import { getWellsInRectangle } from "../../utils";
+import { useUndo, useCanUndo } from "../../contexts/UndoContext";
 
 // Separate wrapper component to isolate PlateMap rendering
 const PlateMapWrapper = ({
@@ -476,22 +477,6 @@ const PlateMapGenerator = ({
     };
   }, []);
 
-  // Keyboard event listener for Ctrl+Z / Cmd+Z undo
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Check for Ctrl+Z (Windows/Linux) or Cmd+Z (Mac)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        e.preventDefault(); // Prevent browser's default undo
-        handleUndo();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [handleUndo]);
-
   // Helper function to toggle multiple well selections
   const toggleWellSelection = (wellIds, currentSelection) => {
     // Check if all wells in wellIds are already selected
@@ -523,9 +508,20 @@ const PlateMapGenerator = ({
 
       // Apply color to selected wells
       if (selectedWells.length > 0) {
+        // Store previous state for undo
+        const previousWellData = JSON.parse(JSON.stringify(wellData));
+        const affectedWells = [...selectedWells];
+        const colorTypeName = elementType === "fillColor" ? "Fill" :
+                              elementType === "borderColor" ? "Border" : "Background";
+
+        // Push undo action
+        pushUndo(`Apply ${colorTypeName} Color`, () => {
+          setWellData(previousWellData);
+        });
+
         setWellData((prev) => {
           const newWellData = { ...prev };
-          selectedWells.forEach((wellId) => {
+          affectedWells.forEach((wellId) => {
             // Create or update the well data
             if (color === "transparent") {
               // If transparent, remove the property if it exists
@@ -552,7 +548,7 @@ const PlateMapGenerator = ({
         });
       }
     },
-    [selectedWells, activeColorElement]
+    [selectedWells, activeColorElement, wellData, pushUndo]
   );
 
   // Handle legend changes from the Legend component
@@ -573,18 +569,18 @@ const PlateMapGenerator = ({
     console.log("Legend updated with new color order:", newLegend.colorOrder);
   }, []);
 
-  // Enhanced clear handler to support both selection clearing and full reset with undo functionality
-  const [undoStack, setUndoStack] = useState([]);
-  const [canUndo, setCanUndo] = useState(false);
+  // Global undo context
+  const { pushUndo, undo } = useUndo();
+  const canUndo = useCanUndo();
 
   // Add undo button next to the selected wells display
   const renderUndoButton = () => {
     if (canUndo) {
       return (
         <button
-          onClick={handleUndo}
+          onClick={undo}
           className="ml-2 text-xs bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-300 px-2 py-1 rounded"
-          title="Undo last action"
+          title="Undo last action (Ctrl+Z)"
         >
           Undo
         </button>
@@ -598,20 +594,16 @@ const PlateMapGenerator = ({
       // Store the previous state for undo functionality
       const previousWellData = { ...wellData };
       const previousSelectedWells = [...selectedWells];
-      const previousLegend = { ...legend }; // Also store legend state for undo
-
-      // Add to undo stack
-      setUndoStack((prev) => [
-        ...prev,
-        {
-          wellData: previousWellData,
-          selectedWells: previousSelectedWells,
-          legend: previousLegend,
-        },
-      ]);
-      setCanUndo(true);
+      const previousLegend = JSON.parse(JSON.stringify(legend)); // Deep copy legend
 
       if (mode === "reset") {
+        // Push undo action for reset
+        pushUndo("Reset Plate", () => {
+          setWellData(previousWellData);
+          setSelectedWells(previousSelectedWells);
+          setLegend(previousLegend);
+        });
+
         // Full reset: Clear colors, selection, and legend
         setWellData({});
         setSelectedWells([]);
@@ -622,37 +614,21 @@ const PlateMapGenerator = ({
             borderColor: [],
             backgroundColor: [],
           },
-        }); // Reset legend with empty colorOrder
+        });
         console.log("Reset plate - cleared all colors, selections, and legend");
       } else {
+        // Push undo action for clear selection
+        pushUndo("Clear Selection", () => {
+          setSelectedWells(previousSelectedWells);
+        });
+
         // Just clear selection, keep colors and legend
         setSelectedWells([]);
         console.log("Cleared selection only");
       }
     },
-    [wellData, selectedWells, legend]
+    [wellData, selectedWells, legend, pushUndo]
   );
-
-  const handleUndo = useCallback(() => {
-    if (undoStack.length > 0) {
-      // Get the last state from the undo stack
-      const lastState = undoStack[undoStack.length - 1];
-
-      // Restore previous state including legend
-      setWellData(lastState.wellData);
-      setSelectedWells(lastState.selectedWells);
-      if (lastState.legend) {
-        setLegend(lastState.legend);
-      }
-
-      // Remove the used state from the stack
-      setUndoStack((prev) => prev.slice(0, -1));
-      // Check if there will be items left after removal
-      setCanUndo(undoStack.length - 1 > 0);
-
-      console.log("Undo operation completed");
-    }
-  }, [undoStack]);
 
   const handlePlateTypeChange = useCallback((newPlateType) => {
     setPlateType(newPlateType);
