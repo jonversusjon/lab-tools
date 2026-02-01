@@ -226,9 +226,11 @@ const PlateMap = ({
       }
       // Normal click - toggle just this row
       else {
+        console.log("PlateMap handleRowClick normal click:", { row, rowLabel });
         setLastClickedElement({ type: "row", row });
         if (onRowClick) {
           // Pass rowLabel to make toggling easier in the parent component
+          console.log("Calling onRowClick prop with:", row, rowLabel);
           onRowClick(row, rowLabel);
         }
       }
@@ -268,8 +270,10 @@ const PlateMap = ({
       }
       // Normal click - toggle just this column
       else {
+        console.log("PlateMap handleColumnClick normal click:", { col, colLabel: colLabels[col] });
         setLastClickedElement({ type: "column", col });
         if (onColumnClick) {
+          console.log("Calling onColumnClick prop with:", col, colLabels[col]);
           onColumnClick(col, colLabels[col]);
         }
       }
@@ -477,7 +481,7 @@ const PlateMap = ({
       >
         {/* Well labels */}
         {hasLabels && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none">
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none pointer-events-none">
             {wellStyles.labels.map((label, index) => {
               // Determine text color based on background contrast
               let textColor = "#000000";
