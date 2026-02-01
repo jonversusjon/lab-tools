@@ -372,8 +372,6 @@ const PlateMapControls = ({
     useState(null);
   const [customPresets, setCustomPresets] = useState([]);
   const [editingPreset, setEditingPreset] = useState(null);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
   // New state for expanded color palette
   const [isColorPaletteExpanded, setIsColorPaletteExpanded] = useState(false);
 
@@ -470,13 +468,12 @@ const PlateMapControls = ({
       // Apply the current color associated with this element to the selection
       if (onColorChange) {
         onColorChange(lastUsedColors[elementId], elementId);
-        // Clear selection after applying color via the main buttons
-        onClear?.("selection");
+        // Don't clear selection - let user apply multiple colors or keep selection
       }
       // Close any open color picker when applying via the main button
       closeColorPicker();
     },
-    [onColorChange, lastUsedColors, onClear, closeColorPicker] // Added dependencies back
+    [onColorChange, lastUsedColors, closeColorPicker]
   );
 
   // Handle color change from the color picker input - only update UI state without applying color
@@ -506,28 +503,6 @@ const PlateMapControls = ({
     // Close the context menu
     onCloseContextMenu?.();
   }, [onClear, onCloseContextMenu, contextMenuType]);
-
-  // New handler for reset with confirmation
-  const handleResetWithConfirmation = useCallback(() => {
-    setPendingAction(() => () => onClear?.("reset"));
-    setShowConfirmDialog(true);
-    onCloseContextMenu?.();
-  }, [onClear, onCloseContextMenu]);
-
-  // Execute confirmed action
-  const confirmAction = useCallback(() => {
-    if (pendingAction) {
-      pendingAction();
-    }
-    setShowConfirmDialog(false);
-    setPendingAction(null);
-  }, [pendingAction]);
-
-  // Cancel confirmed action
-  const cancelAction = useCallback(() => {
-    setShowConfirmDialog(false);
-    setPendingAction(null);
-  }, []);
 
   // Apply the selected preset color or current color and clear selection afterwards
   const handleApplyColor = useCallback(
@@ -1030,15 +1005,12 @@ const PlateMapControls = ({
           </button>
         )}
 
-        {/* Renamed Reset button - clears selection and colors - now with confirmation */}
+        {/* Reset button - clears selection and colors without confirmation */}
         {onClear && (
           <button
-            onClick={() => {
-              setPendingAction(() => () => onClear("reset"));
-              setShowConfirmDialog(true);
-            }}
+            onClick={() => onClear("reset")}
             className="px-3 py-1.5 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
-            title="Reset all well colors and clear selection"
+            title="Reset all well colors and clear selection (can be undone with Ctrl+Z)"
           >
             Reset Plate
           </button>
@@ -1217,7 +1189,10 @@ const PlateMapControls = ({
                   </button>
                   <button
                     className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-                    onClick={handleResetWithConfirmation}
+                    onClick={() => {
+                      onClear?.("reset");
+                      onCloseContextMenu?.();
+                    }}
                   >
                     Reset Plate
                   </button>
@@ -1240,35 +1215,6 @@ const PlateMapControls = ({
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {/* Confirmation dialog */}
-      {showConfirmDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 max-w-sm w-full">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              Confirm Reset
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
-              Are you sure you want to reset this plate? All well colors will be
-              cleared.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={cancelAction}
-                className="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-white rounded hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmAction}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-              >
-                Reset
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>

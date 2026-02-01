@@ -26,9 +26,8 @@ const PlateMap = ({
 }) => {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [selectedElement, setSelectedElement] = useState(null);
 
-  // Keep only selection tracking state
+  // Keep only selection tracking state for shift-click range selection
   const [lastClickedElement, setLastClickedElement] = useState(null);
   const wellRefs = useRef({});
 
@@ -118,7 +117,6 @@ const PlateMap = ({
       }
       // Normal click - toggle just this well
       else {
-        setSelectedElement({ type: "well", row, col, id: wellId });
         setLastClickedElement({ type: "well", row, col, id: wellId });
         if (onWellClick) {
           onWellClick(wellId, row, col);
@@ -312,7 +310,7 @@ const PlateMap = ({
 
     // Function to collect labels from the legend for a specific color and type
     const collectLabels = (colorType, color) => {
-      if (!color || color === "transparent") return;
+      if (!color) return;
 
       const colorLegend = legend?.colors?.[colorType] || {};
       const colorInfo = colorLegend[color];
@@ -334,7 +332,7 @@ const PlateMap = ({
     // Determine background color, accounting for selection state
     let backgroundColor = "var(--well-default-bg, #ffffff)";
 
-    if (data.fillColor !== undefined && data.fillColor !== "transparent") {
+    if (data.fillColor !== undefined) {
       backgroundColor = data.fillColor;
     } else if (isSelected) {
       backgroundColor = "rgba(59, 130, 246, 0.5)"; // Light blue background for selected wells
@@ -343,10 +341,9 @@ const PlateMap = ({
     return {
       backgroundColor: backgroundColor,
       borderColor:
-        data.borderColor === "transparent"
-          ? "transparent"
-          : data.borderColor ||
-            (isSelected ? "rgba(59, 130, 246, 1)" : "rgba(209, 213, 219, 1)"),
+        data.borderColor !== undefined
+          ? data.borderColor
+          : (isSelected ? "rgba(59, 130, 246, 1)" : "rgba(209, 213, 219, 1)"),
       // Enhanced shadow/glow using CSS variables for theme awareness
       boxShadow: isSelected
         ? "0 0 0 2px rgba(59, 130, 246, 0.4)"
@@ -356,9 +353,9 @@ const PlateMap = ({
         : "none",
       // Add background div style if needed
       backgroundSquare:
-        data.backgroundColor === "transparent"
-          ? "transparent"
-          : data.backgroundColor || "transparent",
+        data.backgroundColor !== undefined
+          ? data.backgroundColor
+          : "transparent",
       labels: labels,
       isPreview: isPreview,
     };
@@ -453,9 +450,7 @@ const PlateMap = ({
         className={`rounded-full cursor-pointer z-10 relative w-[calc(100%-6px)] h-[calc(100%-6px)] m-0.5 ${
           isWellSelected(row, col) ? "border-blue-500 dark:border-blue-400" : ""
         } ${
-          wellStyles.borderColor === "transparent"
-            ? ""
-            : wellData[wellId]?.borderColor
+          wellData[wellId]?.borderColor !== undefined
             ? "border-2" // Custom border color gets thick border
             : "border-1" // Default border color stays thin
         } ${
@@ -485,9 +480,8 @@ const PlateMap = ({
               // Determine text color based on background contrast
               let textColor = "#000000";
 
-              // Check if the background is transparent
+              // Check if the background is transparent (default well background)
               const isTransparentBackground =
-                wellStyles.backgroundColor === "transparent" ||
                 wellStyles.backgroundColor ===
                   "var(--well-default-bg, #ffffff)";
 
@@ -521,13 +515,9 @@ const PlateMap = ({
     );
   };
 
-  // Prepare a label for the selected element
-  const selectedLabel = selectedElement
-    ? selectedElement.type === "well"
-      ? selectedElement.id
-      : selectedElement.type === "row"
-      ? `Row ${rowLabels[selectedElement.row]}`
-      : `Col ${colLabels[selectedElement.col]}`
+  // Prepare a label for the selected wells count
+  const selectedLabel = selectedWells.length > 0
+    ? `${selectedWells.length} well${selectedWells.length !== 1 ? 's' : ''}`
     : "None";
 
   // Common wrapper for all plate types
@@ -559,7 +549,7 @@ const PlateMap = ({
                   <div
                     key={i}
                     data-col-index={i}
-                    className={`flex-1 flex items-center justify-center text-xs font-medium cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-t-sm ${
+                    className={`flex-1 flex items-center justify-center text-xs font-medium cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-t-sm select-none ${
                       isColumnSelected(i)
                         ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
                         : "text-gray-600 dark:text-gray-300"
@@ -583,7 +573,7 @@ const PlateMap = ({
                   <div
                     key={i}
                     data-row-index={i}
-                    className={`flex-1 flex items-center justify-center text-xs font-medium cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-l-sm ${
+                    className={`flex-1 flex items-center justify-center text-xs font-medium cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-l-sm select-none ${
                       isRowSelected(i)
                         ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
                         : "text-gray-600 dark:text-gray-300"

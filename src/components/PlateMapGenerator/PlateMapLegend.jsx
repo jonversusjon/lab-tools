@@ -233,8 +233,8 @@ const PlateMapLegend = ({
       // Check each color type
       Object.entries(colorTypeLabels).forEach(([colorType]) => {
         const color = data[colorType];
-        // Only track non-transparent, valid colors
-        if (color && color !== "transparent") {
+        // Only track valid colors (undefined means transparent/no color)
+        if (color !== undefined) {
           extractedColors[colorType][color] = true;
 
           // Initialize array for this color if it doesn't exist
@@ -264,7 +264,7 @@ const PlateMapLegend = ({
     setUsedColors(extractedColors);
     setWellsByColor(newWellsByColor);
 
-    // Initialize or update color order - UPDATED to functional form
+    // Initialize or update color order - using functional form to avoid dependency on colorOrder
     setColorOrder((prevOrder) => {
       const newOrder = {};
       Object.entries(extractedColors).forEach(([type, colors]) => {
@@ -276,7 +276,7 @@ const PlateMapLegend = ({
       });
       return newOrder;
     });
-  }, [wellData, legend.colors, legend.colorOrder, colorTypeLabels]); // Removed colorOrder dependency
+  }, [wellData, legend.colors, colorTypeLabels]); // Removed legend.colorOrder to prevent update loops
 
   // Update legend when a label or checkbox changes
   const handleLegendItemChange = useCallback(

@@ -36,8 +36,28 @@ const PlateMapWrapper = ({
       (_, colIndex) => `${rowLabel}${colIndex + 1}`
     );
 
-    // Toggle the row's wells without affecting other selections
-    setSelectedWells((prev) => toggleWellSelection(rowWells, prev));
+    // Rule: if all selected OR all unselected, toggle all; else turn all on
+    setSelectedWells((prev) => {
+      const allSelected = rowWells.every((id) => prev.includes(id));
+      const allUnselected = rowWells.every((id) => !prev.includes(id));
+
+      if (allSelected) {
+        // All selected -> deselect all
+        return prev.filter((id) => !rowWells.includes(id));
+      } else if (allUnselected) {
+        // All unselected -> select all
+        return [...prev, ...rowWells];
+      } else {
+        // Mixed state -> turn all on (add any missing)
+        const newSelection = [...prev];
+        rowWells.forEach((id) => {
+          if (!newSelection.includes(id)) {
+            newSelection.push(id);
+          }
+        });
+        return newSelection;
+      }
+    });
   };
 
   const handleColumnClick = (colIndex, colLabel) => {
@@ -47,8 +67,28 @@ const PlateMapWrapper = ({
       (_, rowIndex) => `${String.fromCharCode(65 + rowIndex)}${colLabel}`
     );
 
-    // Toggle the column's wells without affecting other selections
-    setSelectedWells((prev) => toggleWellSelection(colWells, prev));
+    // Rule: if all selected OR all unselected, toggle all; else turn all on
+    setSelectedWells((prev) => {
+      const allSelected = colWells.every((id) => prev.includes(id));
+      const allUnselected = colWells.every((id) => !prev.includes(id));
+
+      if (allSelected) {
+        // All selected -> deselect all
+        return prev.filter((id) => !colWells.includes(id));
+      } else if (allUnselected) {
+        // All unselected -> select all
+        return [...prev, ...colWells];
+      } else {
+        // Mixed state -> turn all on (add any missing)
+        const newSelection = [...prev];
+        colWells.forEach((id) => {
+          if (!newSelection.includes(id)) {
+            newSelection.push(id);
+          }
+        });
+        return newSelection;
+      }
+    });
   };
 
   const handleMultipleSelection = (wellIds, isToggle = false) => {
@@ -185,8 +225,8 @@ const PlateMapGenerator = ({
   // Update well positions when wellData changes
   useEffect(() => {
     if (selectionContainerRef.current) {
-      // Need to wait for the next render cycle to ensure wells are rendered
-      const timer = setTimeout(() => {
+      // Use requestAnimationFrame to ensure wells are rendered
+      const rafId = requestAnimationFrame(() => {
         const positions = {};
         const containerRect =
           selectionContainerRef.current.getBoundingClientRect();
@@ -209,9 +249,9 @@ const PlateMapGenerator = ({
         });
 
         setWellPositions(positions);
-      }, 100); // Short delay to ensure DOM is updated
+      });
 
-      return () => clearTimeout(timer);
+      return () => cancelAnimationFrame(rafId);
     }
   }, [wellData, plateType]);
 
@@ -239,6 +279,9 @@ const PlateMapGenerator = ({
     // Only act on left mouse button
     if (e.button !== 0) return;
 
+    // Don't start selection if well positions aren't ready
+    if (Object.keys(wellPositions).length === 0) return;
+
     const containerRect = selectionContainerRef.current.getBoundingClientRect();
     const startX = e.clientX - containerRect.left;
     const startY = e.clientY - containerRect.top;
@@ -247,7 +290,7 @@ const PlateMapGenerator = ({
     setSelectionStart({ x: startX, y: startY });
     setSelectionRect({ startX, startY, endX: startX, endY: startY });
     setIsSelecting(true);
-  }, []);
+  }, [wellPositions]);
 
   // Mouse move handler for drag selection
   const handleMouseMove = useCallback(
@@ -283,8 +326,15 @@ const PlateMapGenerator = ({
         return;
       }
 
-      // Calculate wells inside the selection rectangle
-      if (selectionRect && Object.keys(wellPositions).length > 0) {
+      // Check if this was actually a drag or just a click
+      const dragThreshold = 5; // pixels
+      const dragDistance = Math.sqrt(
+        Math.pow(selectionRect.endX - selectionRect.startX, 2) +
+        Math.pow(selectionRect.endY - selectionRect.startY, 2)
+      );
+
+      // Only process as drag selection if user actually dragged
+      if (dragDistance >= dragThreshold && selectionRect && Object.keys(wellPositions).length > 0) {
         const selectedRegion = getWellsInRectangle(
           selectionRect,
           wellPositions
@@ -305,6 +355,7 @@ const PlateMapGenerator = ({
           });
         }
       }
+      // If dragDistance < threshold, it's a click - let the well's onClick handle it
 
       // Reset selection and preview state
       setIsSelecting(false);
@@ -320,6 +371,9 @@ const PlateMapGenerator = ({
     // Prevent default to avoid scrolling when starting selection
     e.preventDefault();
 
+    // Don't start selection if well positions aren't ready
+    if (Object.keys(wellPositions).length === 0) return;
+
     const touch = e.touches[0];
     const containerRect = selectionContainerRef.current.getBoundingClientRect();
     const startX = touch.clientX - containerRect.left;
@@ -329,7 +383,7 @@ const PlateMapGenerator = ({
     setSelectionStart({ x: startX, y: startY });
     setSelectionRect({ startX, startY, endX: startX, endY: startY });
     setIsSelecting(true);
-  }, []);
+  }, [wellPositions]);
 
   const handleTouchMove = useCallback(
     (e) => {
@@ -372,18 +426,37 @@ const PlateMapGenerator = ({
         return;
       }
 
-      // Calculate wells inside the touch selection rectangle
-      if (selectionRect && Object.keys(wellPositions).length > 0) {
+      // Check if this was actually a drag or just a tap
+      const dragThreshold = 5; // pixels
+      const dragDistance = Math.sqrt(
+        Math.pow(selectionRect.endX - selectionRect.startX, 2) +
+        Math.pow(selectionRect.endY - selectionRect.startY, 2)
+      );
+
+      // Only process as drag selection if user actually dragged
+      if (dragDistance >= dragThreshold && selectionRect && Object.keys(wellPositions).length > 0) {
         const selectedRegion = getWellsInRectangle(
           selectionRect,
           wellPositions
         );
 
+        // Check for modifier keys to determine the selection behavior
+        // Touch events can have modifier keys if user is holding a key while touching
+        const isToggleMode = e.ctrlKey || e.metaKey;
+
         // Trigger selection update with the wells in the region
         if (selectedRegion.length > 0) {
-          setSelectedWells(selectedRegion);
+          // If ctrl/cmd is pressed, toggle the selection instead of replacing it
+          setSelectedWells((prev) => {
+            if (isToggleMode) {
+              return toggleWellSelection(selectedRegion, prev);
+            } else {
+              return selectedRegion;
+            }
+          });
         }
       }
+      // If dragDistance < threshold, it's a tap - let the well's onClick handle it
 
       // Reset selection and preview state
       setIsSelecting(false);
@@ -402,6 +475,22 @@ const PlateMapGenerator = ({
       }
     };
   }, []);
+
+  // Keyboard event listener for Ctrl+Z / Cmd+Z undo
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Check for Ctrl+Z (Windows/Linux) or Cmd+Z (Mac)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault(); // Prevent browser's default undo
+        handleUndo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleUndo]);
 
   // Helper function to toggle multiple well selections
   const toggleWellSelection = (wellIds, currentSelection) => {
@@ -558,7 +647,8 @@ const PlateMapGenerator = ({
 
       // Remove the used state from the stack
       setUndoStack((prev) => prev.slice(0, -1));
-      setCanUndo(undoStack.length > 1);
+      // Check if there will be items left after removal
+      setCanUndo(undoStack.length - 1 > 0);
 
       console.log("Undo operation completed");
     }
@@ -659,33 +749,49 @@ const PlateMapGenerator = ({
         renderColorElement={renderColorElement}
       />
 
-      {/* Two-column layout for plate map and legend with selection rectangle container */}
-      <div
-        ref={selectionContainerRef}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        style={{ position: "relative" }}
-        className="flex flex-col md:flex-row gap-4"
-      >
-        {/* Plate Map - Using the wrapper component */}
+      {/* Two-column layout for plate map and legend */}
+      <div className="flex flex-col md:flex-row gap-4">
+        {/* Plate Map with selection rectangle container */}
         <div className="md:flex-1">
-          <PlateMapWrapper
-            plateType={plateType}
-            selectedWells={selectedWells}
-            wellData={wellData}
-            plateId={plateId}
-            setSelectedWells={setSelectedWells}
-            toggleWellSelection={toggleWellSelection}
-            setContextMenuPosition={setContextMenuPosition}
-            setContextMenuType={setContextMenuType}
-            setShowContextMenu={setShowContextMenu}
-            legend={legend}
-            previewWells={previewWells}
-          />
+          <div
+            ref={selectionContainerRef}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            style={{ position: "relative", padding: "40px" }}
+          >
+            <PlateMapWrapper
+              plateType={plateType}
+              selectedWells={selectedWells}
+              wellData={wellData}
+              plateId={plateId}
+              setSelectedWells={setSelectedWells}
+              toggleWellSelection={toggleWellSelection}
+              setContextMenuPosition={setContextMenuPosition}
+              setContextMenuType={setContextMenuType}
+              setShowContextMenu={setShowContextMenu}
+              legend={legend}
+              previewWells={previewWells}
+            />
+
+            {/* Selection rectangle overlay */}
+            {isSelecting && selectionRect && (
+              <div
+                className="absolute pointer-events-none border-2 border-dashed border-blue-500 bg-blue-500/10"
+                style={{
+                  left: Math.min(selectionRect.startX, selectionRect.endX) + "px",
+                  top: Math.min(selectionRect.startY, selectionRect.endY) + "px",
+                  width: Math.abs(selectionRect.endX - selectionRect.startX) + "px",
+                  height:
+                    Math.abs(selectionRect.endY - selectionRect.startY) + "px",
+                  zIndex: 50,
+                }}
+              />
+            )}
+          </div>
         </div>
 
         {/* Legend Section */}
@@ -696,21 +802,6 @@ const PlateMapGenerator = ({
             onLegendChange={handleLegendChange}
           />
         </div>
-
-        {/* Selection rectangle overlay */}
-        {isSelecting && selectionRect && (
-          <div
-            className="absolute pointer-events-none border-2 border-dashed border-blue-500 bg-blue-500/10"
-            style={{
-              left: Math.min(selectionRect.startX, selectionRect.endX) + "px",
-              top: Math.min(selectionRect.startY, selectionRect.endY) + "px",
-              width: Math.abs(selectionRect.endX - selectionRect.startX) + "px",
-              height:
-                Math.abs(selectionRect.endY - selectionRect.startY) + "px",
-              zIndex: 50,
-            }}
-          />
-        )}
       </div>
 
       {/* Selected Wells Display */}
