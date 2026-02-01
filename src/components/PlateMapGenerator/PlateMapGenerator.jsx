@@ -5,7 +5,7 @@ import PlateMapControls from "./PlateMapControls";
 import PlateMapLegend from "./PlateMapLegend";
 import { getWellsInRectangle } from "../../utils";
 import { useUndo, useCanUndo } from "../../contexts/UndoContext";
-import html2canvas from "html2canvas";
+import html2canvas from "html2canvas-pro";
 import { Copy, Download, LayoutTemplate, PenTool } from "lucide-react"; // Import new icons
 
 // Separate wrapper component to isolate PlateMap rendering
@@ -153,6 +153,7 @@ const PlateMapGenerator = ({
   });
   const [activeColorElement, setActiveColorElement] = useState("fillColor");
   const [copyButtonText, setCopyButtonText] = useState("Copy PNG");
+  const [downloadButtonText, setDownloadButtonText] = useState("Download PNG");
 
   // Add legend state
   const [legend, setLegend] = useState(
@@ -712,46 +713,90 @@ const PlateMapGenerator = ({
     }
     if (!element) {
       console.error("No element found to capture");
+      setCopyButtonText("Error: No Element");
+      setTimeout(() => setCopyButtonText("Copy PNG"), 2000);
       return;
     }
 
-    try {
-      setCopyButtonText("Generating...");
-      const canvas = await html2canvas(element, {
-        backgroundColor: null, // Transparent/Use element background
-        scale: 3, // Higher quality
-        logging: false,
-        useCORS: true,
-      });
+    setCopyButtonText("Generating...");
 
-      canvas.toBlob((blob) => {
-        if (blob) {
-          if (!navigator.clipboard) {
-             console.error("Clipboard API not available");
-             setCopyButtonText("Not supported!");
-             setTimeout(() => setCopyButtonText("Copy PNG"), 2000);
-             return;
-          }
-          const item = new ClipboardItem({ "image/png": blob });
-          navigator.clipboard.write([item]).then(() => {
-            setCopyButtonText("Copied!");
-            setTimeout(() => setCopyButtonText("Copy PNG"), 2000);
-          }).catch(err => {
-            console.error("Clipboard write failed:", err);
-            setCopyButtonText("Failed!");
-            setTimeout(() => setCopyButtonText("Copy PNG"), 2000);
+    // Give UI time to update
+    setTimeout(async () => {
+      const generateBlob = async (scale) => {
+        try {
+          console.log(`Attempting capture at scale ${scale}...`);
+          const canvas = await html2canvas(element, {
+            backgroundColor: null,
+            scale: scale,
+            logging: false,
+            useCORS: false,
+            allowTaint: false,
+            onclone: (clonedDoc) => {
+              const clonedElement = clonedDoc.getElementById("presentation-view");
+              if (clonedElement) {
+                // Make the container transparent and remove borders/shadows
+                clonedElement.style.backgroundColor = "transparent";
+                clonedElement.style.boxShadow = "none";
+                clonedElement.style.border = "none";
+              }
+            }
           });
+
+          console.log(`Canvas created: ${canvas.width}x${canvas.height}`);
+          
+          if (canvas.width === 0 || canvas.height === 0) {
+            throw new Error("Canvas has 0 dimensions");
+          }
+
+          return new Promise((resolve, reject) => {
+            try {
+              canvas.toBlob((blob) => {
+                if (!blob) reject(new Error("Blob is null"));
+                else resolve(blob);
+              }, 'image/png');
+            } catch (e) {
+              reject(e);
+            }
+          });
+        } catch (err) {
+          console.error(`Capture failed at scale ${scale}:`, err);
+          return null;
+        }
+      };
+
+      try {
+        if (!navigator.clipboard) {
+           console.error("Clipboard API not available");
+           setCopyButtonText("No Clipboard API");
+           setTimeout(() => setCopyButtonText("Copy PNG"), 2000);
+           return;
+        }
+
+        // Try high quality first (Scale 3 should work now with html2canvas-pro)
+        let blob = await generateBlob(3);
+        
+        // If failed, try standard quality
+        if (!blob) {
+          console.warn("High quality capture failed, retrying with standard quality...");
+          blob = await generateBlob(1);
+        }
+
+        if (blob) {
+          const item = new ClipboardItem({ "image/png": blob });
+          await navigator.clipboard.write([item]);
+          setCopyButtonText("Copied!");
+          setTimeout(() => setCopyButtonText("Copy PNG"), 2000);
         } else {
-          console.error("Blob generation failed");
-          setCopyButtonText("Failed!");
+          console.error("All blob generation attempts failed");
+          setCopyButtonText("Failed: Gen Err");
           setTimeout(() => setCopyButtonText("Copy PNG"), 2000);
         }
-      });
-    } catch (err) {
-      console.error("Failed to copy image:", err);
-      setCopyButtonText("Failed!");
-      setTimeout(() => setCopyButtonText("Copy PNG"), 2000);
-    }
+      } catch (err) {
+        console.error("Failed to copy image:", err);
+        setCopyButtonText("Failed: Write Err");
+        setTimeout(() => setCopyButtonText("Copy PNG"), 2000);
+      }
+    }, 50);
   };
 
   const handleDownloadImage = async () => {
@@ -759,21 +804,72 @@ const PlateMapGenerator = ({
     if (!element) {
       element = document.getElementById("presentation-view");
     }
-    if (!element) return;
-
-    try {
-      const canvas = await html2canvas(element, {
-        backgroundColor: null,
-        scale: 3,
-        useCORS: true,
-      });
-      const link = document.createElement("a");
-      link.download = `plate-map-${plateMetadata.name || "export"}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-    } catch (err) {
-      console.error("Failed to download image:", err);
+    if (!element) {
+       console.error("No element found for download");
+       setDownloadButtonText("Error: No Element");
+       setTimeout(() => setDownloadButtonText("Download PNG"), 2000);
+       return;
     }
+
+    setDownloadButtonText("Generating...");
+
+    // Give UI time to update
+    setTimeout(async () => {
+      try {
+        const generateCanvas = async (scale) => {
+           try {
+             return await html2canvas(element, {
+              backgroundColor: null,
+              scale: scale,
+              logging: false,
+              useCORS: false,
+              allowTaint: false,
+              onclone: (clonedDoc) => {
+                const clonedElement = clonedDoc.getElementById("presentation-view");
+                if (clonedElement) {
+                  // Make the container transparent and remove borders/shadows
+                  clonedElement.style.backgroundColor = "transparent";
+                  clonedElement.style.boxShadow = "none";
+                  clonedElement.style.border = "none";
+                }
+              }
+            });
+           } catch (e) {
+             console.error(`Download capture failed at scale ${scale}`, e);
+             return null;
+           }
+        };
+
+        // Try high quality first
+        let canvas = await generateCanvas(3);
+
+        // Retry if needed
+        if (!canvas) {
+           console.warn("High quality download failed, retrying...");
+           canvas = await generateCanvas(1);
+        }
+
+        if (!canvas) {
+          throw new Error("Canvas generation failed");
+        }
+        
+        console.log(`Download canvas: ${canvas.width}x${canvas.height}`);
+
+        const link = document.createElement("a");
+        link.download = `plate-map-${plateMetadata.name || "export"}.png`;
+        link.href = canvas.toDataURL("image/png");
+        document.body.appendChild(link); 
+        link.click();
+        document.body.removeChild(link);
+        
+        setDownloadButtonText("Downloaded!");
+        setTimeout(() => setDownloadButtonText("Download PNG"), 2000);
+      } catch (err) {
+        console.error("Failed to download image:", err);
+        setDownloadButtonText("Failed!");
+        setTimeout(() => setDownloadButtonText("Download PNG"), 2000);
+      }
+    }, 50);
   };
 
   if (viewMode === "presentation") {
@@ -799,7 +895,7 @@ const PlateMapGenerator = ({
               onClick={handleDownloadImage}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              <Download className="w-4 h-4" /> Download PNG
+              <Download className="w-4 h-4" /> {downloadButtonText}
             </button>
           </div>
         </div>

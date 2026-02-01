@@ -412,45 +412,23 @@ const PlateMap = ({
 
     // Calculate text size based on plate dimensions and screen size
     const getTextSizeClass = () => {
-      // Base size on total wells (fewer wells = larger text)
+      // Base size on total wells
       const totalWells = rows * cols;
-
-      // Screen size detection using window width
       const screenWidth = window.innerWidth;
 
-      // Determine base size class by plate density
-      let baseSize = "";
       if (totalWells <= 24) {
-        baseSize = "text-base"; // Larger text for plates with few wells (e.g., 6-well, 12-well, 24-well)
+        return screenWidth < 1024 ? "text-[0.6rem]" : "text-[0.7rem]";
       } else if (totalWells <= 96) {
-        baseSize = "text-sm"; // Medium text for 96-well plates
+        return screenWidth < 1024 ? "text-[0.5rem]" : "text-[0.6rem]";
       } else {
-        baseSize = "text-xs"; // Small text for 384-well plates or denser
-      }
-
-      // Adjust size based on screen width
-      if (screenWidth < 640) {
-        // Small mobile screens
-        // Downgrade text size by one level on small screens
-        if (baseSize === "text-base") return "text-sm";
-        if (baseSize === "text-sm") return "text-xs";
-        return "text-[0.65rem]"; // Smaller than xs for very dense plates on mobile
-      } else if (screenWidth < 1024) {
-        // Tablets and small laptops
-        return baseSize; // Use base size
-      } else {
-        // Large screens
-        // Upgrade text size by one level on large screens
-        if (baseSize === "text-xs") return "text-sm";
-        if (baseSize === "text-sm") return "text-base";
-        return "text-lg"; // Larger than base for sparse plates on big screens
+        return "text-[0.4rem]";
       }
     };
 
     return (
       <div
         data-well-id={wellId}
-        className={`rounded-full z-10 relative w-[calc(100%-6px)] h-[calc(100%-6px)] m-0.5 ${readOnly ? "" : "cursor-pointer"
+        className={`rounded-full z-10 relative w-[calc(100%-2px)] h-[calc(100%-2px)] m-[1px] ${readOnly ? "" : "cursor-pointer"
           } ${wellData[wellId]?.borderColor !== undefined
             ? "border-2" // Custom border color gets thick border
             : "border" // Default border color stays thin
@@ -469,7 +447,7 @@ const PlateMap = ({
               ? wellStyles.selectionOutline
               : (isPreview ? "2px solid var(--well-outline-color)" : "none"))
             : "none",
-          outlineOffset: wellStyles.isSelected ? "2px" : "1px",
+          outlineOffset: wellStyles.isSelected ? "1px" : "1px",
         }}
         onClick={(e) => !readOnly && handleWellClick(row, col, e)}
         onContextMenu={(e) => {
@@ -480,8 +458,8 @@ const PlateMap = ({
       >
         {/* Well labels */}
         {hasLabels && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none pointer-events-none">
-            {wellStyles.labels.map((label, index) => {
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none pointer-events-none p-0.5">
+            {wellStyles.labels.slice(0, 3).map((label, index) => {
               // Determine text color based on background contrast
               let textColor = "#000000";
 
@@ -498,7 +476,6 @@ const PlateMap = ({
                 textColor = isDarkMode ? "#ffffff" : "#000000";
               } else {
                 // For any non-transparent background, use contrast to determine text color
-                // This ensures all label types get proper contrast regardless of label type
                 textColor = tinycolor(wellStyles.backgroundColor).isDark()
                   ? "#ffffff"
                   : "#000000";
@@ -507,7 +484,7 @@ const PlateMap = ({
               return (
                 <div
                   key={index}
-                  className={`${getTextSizeClass()} leading-tight overflow-hidden max-w-full px-0.5 whitespace-nowrap overflow-ellipsis`}
+                  className={`${getTextSizeClass()} leading-[1.1] overflow-hidden w-full px-0.5 whitespace-nowrap overflow-ellipsis`}
                   style={{ color: textColor }}
                 >
                   {label.text}
@@ -536,7 +513,7 @@ const PlateMap = ({
       {/* The plate container - no longer needs mouse/touch handlers */}
       <div
         ref={containerRef}
-        className="relative border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 mb-4 select-none"
+        className="relative border border-gray-300 dark:border-gray-600 rounded-md p-1 bg-white dark:bg-gray-700 mb-4 select-none"
         style={{ width: "100%", aspectRatio: plateConfig.ratio || PLATE_RATIO }}
         onContextMenu={(e) => {
           e.preventDefault();
