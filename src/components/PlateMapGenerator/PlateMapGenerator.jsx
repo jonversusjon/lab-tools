@@ -287,6 +287,18 @@ const PlateMapGenerator = ({
     // Don't start selection if well positions aren't ready
     if (Object.keys(wellPositions).length === 0) return;
 
+    // Check if clicking on a well, row header, or column header
+    // If so, let the click handler deal with it instead of starting drag
+    const target = e.target;
+    const isWell = target.closest('[data-well-id]');
+    const isRowHeader = target.closest('[data-row-index]');
+    const isColumnHeader = target.closest('[data-col-index]');
+
+    if (isWell || isRowHeader || isColumnHeader) {
+      // Don't start drag selection - let click handlers work
+      return;
+    }
+
     const containerRect = selectionContainerRef.current.getBoundingClientRect();
     const startX = e.clientX - containerRect.left;
     const startY = e.clientY - containerRect.top;
@@ -373,11 +385,22 @@ const PlateMapGenerator = ({
 
   // Touch handlers for mobile devices
   const handleTouchStart = useCallback((e) => {
-    // Prevent default to avoid scrolling when starting selection
-    e.preventDefault();
-
     // Don't start selection if well positions aren't ready
     if (Object.keys(wellPositions).length === 0) return;
+
+    // Check if touching on a well, row header, or column header
+    const target = e.target;
+    const isWell = target.closest('[data-well-id]');
+    const isRowHeader = target.closest('[data-row-index]');
+    const isColumnHeader = target.closest('[data-col-index]');
+
+    if (isWell || isRowHeader || isColumnHeader) {
+      // Don't start drag selection - let click handlers work
+      return;
+    }
+
+    // Prevent default to avoid scrolling when starting selection
+    e.preventDefault();
 
     const touch = e.touches[0];
     const containerRect = selectionContainerRef.current.getBoundingClientRect();

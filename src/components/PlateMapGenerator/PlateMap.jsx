@@ -467,11 +467,7 @@ const PlateMap = ({
           outline: isPreview ? "2px solid var(--well-outline-color)" : "none",
           outlineOffset: "1px",
         }}
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          handleWellClick(row, col, e);
-        }}
+        onClick={(e) => handleWellClick(row, col, e)}
         onContextMenu={(e) => {
           e.preventDefault();
           onContextMenu?.(e, "well");
@@ -536,7 +532,7 @@ const PlateMap = ({
       <div
         ref={containerRef}
         className="relative border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 mb-4 select-none"
-        style={{ width: "100%", aspectRatio: PLATE_RATIO, userSelect: "none" }}
+        style={{ width: "100%", aspectRatio: PLATE_RATIO }}
         onContextMenu={(e) => {
           e.preventDefault();
           onContextMenu?.(e, "plate");
@@ -558,12 +554,7 @@ const PlateMap = ({
                         ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
                         : "text-gray-600 dark:text-gray-300"
                     }`}
-                    style={{ userSelect: "none" }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleColumnClick(i, e);
-                    }}
+                    onClick={(e) => handleColumnClick(i, e)}
                     onContextMenu={(e) => {
                       e.preventDefault();
                       onContextMenu?.(e, "column");
@@ -587,12 +578,7 @@ const PlateMap = ({
                         ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
                         : "text-gray-600 dark:text-gray-300"
                     }`}
-                    style={{ userSelect: "none" }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRowClick(i, e);
-                    }}
+                    onClick={(e) => handleRowClick(i, e)}
                     onContextMenu={(e) => {
                       e.preventDefault();
                       onContextMenu?.(e, "row");
@@ -619,12 +605,10 @@ const PlateMap = ({
                       key={`${row}-${col}`}
                       ref={(el) => (wellRefs.current[wellId] = el)}
                       data-well-container-id={wellId}
-                      className="m-0 z-20 relative cursor-pointer select-none"
+                      className="m-0 z-20 relative cursor-pointer"
                       style={{
                         backgroundColor: wellStyles.backgroundSquare,
-                        userSelect: "none",
                       }}
-                      onMouseDown={(e) => e.stopPropagation()}
                     >
                       {renderWellContent(row, col)}
                     </div>
