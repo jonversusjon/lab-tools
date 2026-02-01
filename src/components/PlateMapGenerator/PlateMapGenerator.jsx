@@ -162,6 +162,10 @@ const PlateMapGenerator = ({
     }
   );
 
+  // Global undo context - must be called before any functions that use it
+  const { pushUndo, undo } = useUndo();
+  const canUndo = useCanUndo();
+
   // Function to handle changing which color property is being edited
   const handleColorElementChange = useCallback(
     (elementType) => {
@@ -568,10 +572,6 @@ const PlateMapGenerator = ({
 
     console.log("Legend updated with new color order:", newLegend.colorOrder);
   }, []);
-
-  // Global undo context
-  const { pushUndo, undo } = useUndo();
-  const canUndo = useCanUndo();
 
   // Add undo button next to the selected wells display
   const renderUndoButton = () => {
