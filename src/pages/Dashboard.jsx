@@ -6,7 +6,7 @@ import {
   CardTitle,
   CardDescription,
   CardAction,
-} from "@/components/ui/card";
+} from "@/components/ui/card.jsx";
 
 // Define the primary tools for the dashboard
 const tools = [
