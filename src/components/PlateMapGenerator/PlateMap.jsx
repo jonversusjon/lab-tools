@@ -23,6 +23,7 @@ const PlateMap = ({
   onContextMenu,
   legend = { colors: {} },
   previewWells = [], // New prop for wells that are being previewed during selection
+  readOnly = false,
 }) => {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -196,7 +197,6 @@ const PlateMap = ({
   // Enhanced row click handler with shift/ctrl support
   const handleRowClick = useCallback(
     (row, e) => {
-      setSelectedElement({ type: "row", row });
       const rowLabel = rowLabels[row];
 
       // Handle shift-click for range selection
@@ -241,8 +241,6 @@ const PlateMap = ({
   // Enhanced column click handler with shift/ctrl support
   const handleColumnClick = useCallback(
     (col, e) => {
-      setSelectedElement({ type: "column", col });
-
       // Handle shift-click for range selection
       if (
         e.shiftKey &&

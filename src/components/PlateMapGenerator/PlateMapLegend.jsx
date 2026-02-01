@@ -43,9 +43,9 @@ const SortableItem = ({
   // Format well IDs for display (e.g., "A1, A2, B3, ...")
   const wellsDisplay = hasWells
     ? wellsWithColor.slice(0, 10).join(", ") +
-      (wellsWithColor.length > 10
-        ? `, +${wellsWithColor.length - 10} more`
-        : "")
+    (wellsWithColor.length > 10
+      ? `, +${wellsWithColor.length - 10} more`
+      : "")
     : "No wells";
 
   return (
@@ -168,6 +168,7 @@ const PlateMapLegend = ({
   wellData = {},
   onLegendChange,
   legend = { colors: {}, colorOrder: {} },
+  readOnly = false,
 }) => {
   // Track colors used in the plate
   const [usedColors, setUsedColors] = useState({
@@ -377,6 +378,56 @@ const PlateMapLegend = ({
     return (
       <div className="text-sm text-gray-500 dark:text-gray-400 italic p-2 select-none">
         No colors used yet. Add colors to wells to create legend items.
+      </div>
+    );
+  }
+
+  // Read-only presentation mode
+  if (readOnly) {
+    // If no colors are used, don't render anything
+    if (colorCount === 0) return null;
+
+    return (
+      <div className="plate-map-legend p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700">
+        <h3 className="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200 border-b pb-2">
+          Legend
+        </h3>
+        {Object.entries(usedColors).map(([colorType, colors]) => {
+          if (Object.keys(colors).length === 0) return null;
+
+          const orderedColors = colorOrder[colorType] || Object.keys(colors);
+
+          return (
+            <div key={colorType} className="mb-6 last:mb-0">
+              <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                {colorTypeLabels[colorType]}
+              </h4>
+              <div className="space-y-2">
+                {orderedColors.map(color => {
+                  const data = colors[color];
+                  if (!data) return null;
+                  // Only show if it has a label or is used? Usually show all used.
+                  return (
+                    <div key={color} className="flex items-center gap-3">
+                      <div
+                        className="w-5 h-5 rounded border border-gray-200 dark:border-gray-600 shadow-sm"
+                        style={{ backgroundColor: color }}
+                      />
+                      <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                        {data.label || "Unnamed"}
+                      </span>
+                      {data.wells && data.wells.length > 0 && (
+                        <span className="text-xs text-gray-400 ml-auto">
+                          ({data.wells.length})
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   }
