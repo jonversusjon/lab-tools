@@ -47,16 +47,19 @@ const PlateMap = ({
 
     const updateDimensions = () => {
       const containerWidth = containerRef.current.clientWidth;
+      // Use specific plate ratio if available, otherwise default
+      const ratio = plateConfig.ratio || PLATE_RATIO;
+
       setDimensions({
         width: containerWidth,
-        height: containerWidth / PLATE_RATIO,
+        height: containerWidth / ratio,
       });
     };
 
     updateDimensions();
     window.addEventListener("resize", updateDimensions);
     return () => window.removeEventListener("resize", updateDimensions);
-  }, [plateType]);
+  }, [plateType, plateConfig]);
 
   // Add a helper function to use getWellIndices
   const getWellFromEvent = useCallback(
@@ -77,12 +80,14 @@ const PlateMap = ({
   // Enhanced well click handler with shift/ctrl support
   const handleWellClick = useCallback(
     (row, col, e) => {
+      console.log("PlateMap handleWellClick called:", { row, col, e });
       if (!e) {
         console.warn("Event object missing in handleWellClick");
         e = { shiftKey: false, ctrlKey: false, metaKey: false };
       }
 
       const wellId = getWellId(row, col, rowLabels, colLabels);
+      console.log("Generated wellId:", wellId);
 
       // Handle shift-click for range selection
       if (e.shiftKey && lastClickedElement) {
@@ -348,9 +353,9 @@ const PlateMap = ({
       boxShadow: isSelected
         ? "0 0 0 2px rgba(59, 130, 246, 0.4)"
         : isPreview
-        ? // Use CSS variables for the glow effect colors
+          ? // Use CSS variables for the glow effect colors
           "0 0 0 2px var(--well-outline-color), 0 0 8px 2px var(--well-glow-color), 0 1px 3px rgba(0, 0, 0, 0.12)"
-        : "none",
+          : "none",
       // Add background div style if needed
       backgroundSquare:
         data.backgroundColor !== undefined
@@ -447,17 +452,14 @@ const PlateMap = ({
     return (
       <div
         data-well-id={wellId}
-        className={`rounded-full cursor-pointer z-10 relative w-[calc(100%-6px)] h-[calc(100%-6px)] m-0.5 ${
-          isWellSelected(row, col) ? "border-blue-500 dark:border-blue-400" : ""
-        } ${
-          wellData[wellId]?.borderColor !== undefined
+        className={`rounded-full cursor-pointer z-10 relative w-[calc(100%-6px)] h-[calc(100%-6px)] m-0.5 ${isWellSelected(row, col) ? "border-blue-500 dark:border-blue-400" : ""
+          } ${wellData[wellId]?.borderColor !== undefined
             ? "border-2" // Custom border color gets thick border
             : "border-1" // Default border color stays thin
-        } ${
-          isPreview
+          } ${isPreview
             ? "transition-all duration-200 animate-pulse-subtle hover:translate-y-[-1px]"
             : ""
-        }`}
+          }`}
         style={{
           backgroundColor: wellStyles.backgroundColor,
           borderColor: wellStyles.borderColor,
@@ -483,7 +485,7 @@ const PlateMap = ({
               // Check if the background is transparent (default well background)
               const isTransparentBackground =
                 wellStyles.backgroundColor ===
-                  "var(--well-default-bg, #ffffff)";
+                "var(--well-default-bg, #ffffff)";
 
               if (isTransparentBackground) {
                 // For transparent background, check dark mode
@@ -532,7 +534,7 @@ const PlateMap = ({
       <div
         ref={containerRef}
         className="relative border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 mb-4 select-none"
-        style={{ width: "100%", aspectRatio: PLATE_RATIO }}
+        style={{ width: "100%", aspectRatio: plateConfig.ratio || PLATE_RATIO }}
         onContextMenu={(e) => {
           e.preventDefault();
           onContextMenu?.(e, "plate");
@@ -549,11 +551,10 @@ const PlateMap = ({
                   <div
                     key={i}
                     data-col-index={i}
-                    className={`flex-1 flex items-center justify-center text-xs font-medium cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-t-sm select-none ${
-                      isColumnSelected(i)
-                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                        : "text-gray-600 dark:text-gray-300"
-                    }`}
+                    className={`flex-1 flex items-center justify-center text-xs font-medium cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-t-sm select-none ${isColumnSelected(i)
+                      ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                      : "text-gray-600 dark:text-gray-300"
+                      }`}
                     onClick={(e) => handleColumnClick(i, e)}
                     onContextMenu={(e) => {
                       e.preventDefault();
@@ -573,11 +574,10 @@ const PlateMap = ({
                   <div
                     key={i}
                     data-row-index={i}
-                    className={`flex-1 flex items-center justify-center text-xs font-medium cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-l-sm select-none ${
-                      isRowSelected(i)
-                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                        : "text-gray-600 dark:text-gray-300"
-                    }`}
+                    className={`flex-1 flex items-center justify-center text-xs font-medium cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-l-sm select-none ${isRowSelected(i)
+                      ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                      : "text-gray-600 dark:text-gray-300"
+                      }`}
                     onClick={(e) => handleRowClick(i, e)}
                     onContextMenu={(e) => {
                       e.preventDefault();

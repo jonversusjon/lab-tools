@@ -2,9 +2,9 @@
 export const PLATE_TYPES = {
   "384-well": { rows: 16, cols: 24, type: "well" },
   "96-well": { rows: 8, cols: 12, type: "well" },
-  "48-well": { rows: 6, cols: 8, type: "well" },
+  "48-well": { rows: 6, cols: 8, type: "well", ratio: 1.333 },
   "24-well": { rows: 4, cols: 6, type: "well" },
-  "12-well": { rows: 3, cols: 4, type: "well" },
+  "12-well": { rows: 3, cols: 4, type: "well", ratio: 1.333 },
   "6-well": { rows: 2, cols: 3, type: "well" },
   "10cm": { rows: 1, cols: 1, type: "dish" },
   "15cm": { rows: 1, cols: 1, type: "dish" },

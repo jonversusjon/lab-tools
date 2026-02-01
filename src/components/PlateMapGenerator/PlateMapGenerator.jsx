@@ -22,23 +22,30 @@ const PlateMapWrapper = ({
 }) => {
   // Define all handlers directly in this component
   const handleWellClick = (wellId) => {
+    console.log("PlateMapWrapper handleWellClick called with:", wellId);
+    console.log("Current selectedWells:", selectedWells);
     // Toggle the well's selection status
-    setSelectedWells((prev) =>
-      prev.includes(wellId)
+    setSelectedWells((prev) => {
+      const isSelected = prev.includes(wellId);
+      console.log("Is well selected?", isSelected, "wellId:", wellId, "prev:", prev);
+      return isSelected
         ? prev.filter((id) => id !== wellId)
-        : [...prev, wellId]
-    );
+        : [...prev, wellId];
+    });
   };
 
   const handleRowClick = (rowIndex, rowLabel) => {
+    console.log("PlateMapWrapper handleRowClick called:", { rowIndex, rowLabel });
     const { cols } = PLATE_TYPES[plateType];
     const rowWells = Array.from(
       { length: cols },
       (_, colIndex) => `${rowLabel}${colIndex + 1}`
     );
+    console.log("Row wells:", rowWells);
 
     // Rule: if all selected OR all unselected, toggle all; else turn all on
     setSelectedWells((prev) => {
+      console.log("Row toggle - prev:", prev);
       const allSelected = rowWells.every((id) => prev.includes(id));
       const allUnselected = rowWells.every((id) => !prev.includes(id));
 
@@ -62,14 +69,17 @@ const PlateMapWrapper = ({
   };
 
   const handleColumnClick = (colIndex, colLabel) => {
+    console.log("PlateMapWrapper handleColumnClick called:", { colIndex, colLabel });
     const { rows } = PLATE_TYPES[plateType];
     const colWells = Array.from(
       { length: rows },
       (_, rowIndex) => `${String.fromCharCode(65 + rowIndex)}${colLabel}`
     );
+    console.log("Column wells:", colWells);
 
     // Rule: if all selected OR all unselected, toggle all; else turn all on
     setSelectedWells((prev) => {
+      console.log("Column toggle - prev:", prev);
       const allSelected = colWells.every((id) => prev.includes(id));
       const allUnselected = colWells.every((id) => !prev.includes(id));
 
@@ -281,11 +291,15 @@ const PlateMapGenerator = ({
 
   // Mouse down handler for drag selection
   const handleMouseDown = useCallback((e) => {
+    console.log("handleMouseDown called, target:", e.target);
     // Only act on left mouse button
     if (e.button !== 0) return;
 
     // Don't start selection if well positions aren't ready
-    if (Object.keys(wellPositions).length === 0) return;
+    if (Object.keys(wellPositions).length === 0) {
+      console.log("handleMouseDown: wellPositions empty, returning");
+      return;
+    }
 
     // Check if clicking on a well, row header, or column header
     // If so, let the click handler deal with it instead of starting drag
@@ -294,8 +308,11 @@ const PlateMapGenerator = ({
     const isRowHeader = target.closest('[data-row-index]');
     const isColumnHeader = target.closest('[data-col-index]');
 
+    console.log("handleMouseDown check:", { isWell: !!isWell, isRowHeader: !!isRowHeader, isColumnHeader: !!isColumnHeader });
+
     if (isWell || isRowHeader || isColumnHeader) {
       // Don't start drag selection - let click handlers work
+      console.log("handleMouseDown: clicking on well/header, letting click handler work");
       return;
     }
 
